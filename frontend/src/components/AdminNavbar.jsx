@@ -22,7 +22,7 @@ export default function AdminNavbar() {
           </div>
           <div>
             <h1 className="text-sm font-bold text-white tracking-wide leading-tight">
-              {user?.taller_nombre || "TallerFlow"}
+              {user?.taller_nombre || "GestorCar"}
             </h1>
             <span className="text-[11px] text-slate-400 block font-mono">
               Operador: {user?.nombre?.split(" ")[0]} ({user?.rol})

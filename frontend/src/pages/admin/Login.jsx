@@ -22,7 +22,11 @@ export default function Login() {
       // Redirigir al panel principal una vez autenticado
       navigate("/admin/ordenes");
     } catch (err) {
-      setError(err.message || "Credenciales inválidas");
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Email o contraseña incorrectos",
+      );
     } finally {
       setLoading(false);
     }
@@ -37,7 +41,7 @@ export default function Login() {
             <Wrench className="w-6 h-6 text-blue-500" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            TallerFlow
+            GestorCar
           </h1>
           <p className="text-sm text-slate-400 mt-1">
             Acceso Administrativo y Operativo
@@ -64,7 +68,7 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="martin@tallerflow.com"
+                placeholder="dueño@taller.com"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 pl-10 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
               />
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
