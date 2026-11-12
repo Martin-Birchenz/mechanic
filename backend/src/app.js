@@ -26,13 +26,13 @@ app.get("/api/health", (req, res) => {
     .json({ status: "success", message: "Taller SaaS API en línea" });
 });
 
-// Manejador central de errores
-app.use(errorHandler);
-
 app.use("/api/auth", authRoutes);
 app.use("/api/clientes-vehiculos", clienteVehiculoRoutes);
 app.use("/api/ordenes", otRoutes);
 app.use("/api/caja", cajaRoutes);
 app.use("/api/public", portalRoutes);
+
+// Manejador central de errores
+app.use(errorHandler);
 
 module.exports = app;
