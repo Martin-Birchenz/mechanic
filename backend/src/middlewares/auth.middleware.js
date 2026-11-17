@@ -17,7 +17,11 @@ const authenticate = (req, res, next) => {
       process.env.JWT_SECRET || "default_jwt_secret_dev",
     );
     req.user = decoded;
-    req.tallerId = decoded.tallerId; // Acceso rápido para aislar tenants
+    const overrideTallerId = req.headers["x-taller-id"];
+    req.tallerId =
+      decoded.rol === "SUPERADMIN" && overrideTallerId
+        ? Number(overrideTallerId)
+        : decoded.tallerId;
     next();
   } catch (err) {
     const error = new Error("Token inválido o expirado");

@@ -52,19 +52,40 @@ class SuperAdminController {
         .trim()
         .replace(/[^a-z0-9-]/g, "-");
 
+      // Inspeccionamos qué columnas reales tiene tu tabla `talleres`
+      const [cols] = await conn.query("SHOW COLUMNS FROM talleres");
+      const colNames = cols.map((c) => c.Field);
+
+      const fields = ["nombre", "slug"];
+      const values = [nombreTaller.trim(), cleanSlug];
+
+      if (colNames.includes("telefono")) {
+        fields.push("telefono");
+        values.push(telefono || null);
+      }
+      if (colNames.includes("direccion")) {
+        fields.push("direccion");
+        values.push(direccion || null);
+      }
+      if (colNames.includes("horarios")) {
+        fields.push("horarios");
+        values.push(horarios || null);
+      }
+      if (colNames.includes("activo")) {
+        fields.push("activo");
+        values.push(1);
+      }
+      if (colNames.includes("tiene_portal_publico")) {
+        fields.push("tiene_portal_publico");
+        values.push(tienePortalPublico ? 1 : 0);
+      }
+
       await conn.beginTransaction();
 
+      const placeholders = fields.map(() => "?").join(", ");
       const [tallerRes] = await conn.query(
-        `INSERT INTO talleres (nombre, slug, telefono, direccion, horarios, activo, tiene_portal_publico)
-         VALUES (?, ?, ?, ?, ?, 1, ?)`,
-        [
-          nombreTaller.trim(),
-          cleanSlug,
-          telefono || null,
-          direccion || null,
-          horarios || null,
-          tienePortalPublico ? 1 : 0,
-        ],
+        `INSERT INTO talleres (${fields.join(", ")}) VALUES (${placeholders})`,
+        values,
       );
 
       const tallerId = tallerRes.insertId;

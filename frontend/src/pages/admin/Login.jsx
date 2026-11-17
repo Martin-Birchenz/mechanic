@@ -18,9 +18,14 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      // Redirigir al panel principal una vez autenticado
-      navigate("/admin/ordenes");
+      localStorage.removeItem("superadmin_taller_id");
+      const loggedUser = await login(email, password);
+
+      if (loggedUser?.rol === "SUPERADMIN") {
+        navigate("/superadmin", { replace: true });
+      } else {
+        navigate("/admin/ordenes", { replace: true });
+      }
     } catch (err) {
       setError(
         err?.response?.data?.message ||
@@ -33,25 +38,25 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
-        {/* Cabecera con ícono de taller */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-blue-600/10 border border-blue-500/20 rounded-xl flex items-center justify-center mb-3">
-            <Wrench className="w-6 h-6 text-blue-500" />
+    <div className="min-h-screen bg-stone-200 flex flex-col justify-center items-center p-4">
+      <div className="max-w-md w-full bg-white border-2 border-stone-300 rounded-2xl p-8 shadow-xl">
+        {/* Cabecera GestorCar */}
+        <div className="flex flex-col items-center mb-7">
+          <div className="w-14 h-14 bg-amber-500 border-2 border-stone-900 rounded-2xl flex items-center justify-center mb-3 shadow">
+            <Wrench className="w-7 h-7 text-stone-950" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl font-black text-stone-900 tracking-tight">
             GestorCar
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Acceso Administrativo y Operativo
+          <p className="text-sm font-semibold text-stone-600 mt-1">
+            Ingreso al Sistema del Taller
           </p>
         </div>
 
         {/* Alerta de Error */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3.5 rounded-xl flex items-center gap-2.5 mb-6 text-sm">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <div className="bg-red-100 border-l-4 border-red-600 text-red-900 p-3.5 rounded-r-xl flex items-center gap-2.5 mb-6 text-sm font-bold">
+            <AlertCircle className="w-5 h-5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -59,7 +64,7 @@ export default function Login() {
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+            <label className="block text-xs font-extrabold uppercase text-stone-700 mb-1.5">
               Correo Electrónico
             </label>
             <div className="relative">
@@ -68,15 +73,15 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="dueño@taller.com"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 pl-10 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="taller@gmail.com"
+                className="w-full bg-stone-100 border-2 border-stone-300 rounded-xl px-4 py-3 pl-11 text-stone-900 text-sm font-semibold focus:outline-none focus:border-amber-600 transition-colors"
               />
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <Mail className="w-5 h-5 text-stone-500 absolute left-3.5 top-3" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+            <label className="block text-xs font-extrabold uppercase text-stone-700 mb-1.5">
               Contraseña
             </label>
             <div className="relative">
@@ -86,24 +91,24 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 pl-10 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-stone-100 border-2 border-stone-300 rounded-xl px-4 py-3 pl-11 text-stone-900 text-sm font-semibold focus:outline-none focus:border-amber-600 transition-colors"
               />
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <Lock className="w-5 h-5 text-stone-500 absolute left-3.5 top-3" />
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-medium py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center mt-2 shadow-lg shadow-blue-600/20"
+            className="w-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white font-extrabold py-3.5 rounded-xl transition-colors text-sm flex items-center justify-center mt-2 shadow-md"
           >
-            {loading ? "Iniciando sesión..." : "Ingresar al Panel"}
+            {loading ? "Ingresando..." : "ENTRAR AL PANEL"}
           </button>
         </form>
 
-        <div className="mt-8 text-center border-t border-slate-800/80 pt-4">
-          <p className="text-xs text-slate-500">
-            ¿Tenés problemas de acceso? Contactá al administrador regional.
+        <div className="mt-7 text-center border-t border-stone-200 pt-4">
+          <p className="text-xs font-semibold text-stone-500">
+            GestorCar • Administración de Talleres Mecánicos
           </p>
         </div>
       </div>

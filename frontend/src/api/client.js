@@ -3,6 +3,7 @@ const BASE_URL =
 
 export async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem("taller_token");
+  const activeTallerId = localStorage.getItem("superadmin_taller_id");
 
   const headers = {
     "Content-Type": "application/json",
@@ -13,12 +14,16 @@ export async function apiFetch(endpoint, options = {}) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  // Permite al SuperAdmin operar dentro de cualquier taller cliente
+  if (activeTallerId) {
+    headers["x-taller-id"] = activeTallerId;
+  }
+
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });
 
-  // Leemos primero como texto para que nunca crashee si el servidor devuelve HTML/vacío
   const rawText = await response.text();
   let data;
   try {
@@ -28,7 +33,6 @@ export async function apiFetch(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    // Extrae message, error o el primer detalle de validación
     const serverMessage =
       data?.message ||
       data?.error ||
