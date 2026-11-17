@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { apiFetch } from "../../api/client";
 import AdminNavbar from "../../components/AdminNavbar";
 import {
@@ -9,21 +10,23 @@ import {
   Mail,
   Calendar,
   Gauge,
-  Wrench,
   History,
   Plus,
   AlertCircle,
   X,
   CheckCircle2,
+  MessageCircle,
 } from "lucide-react";
 
 export default function ClientesVehiculos() {
-  const [patenteInput, setPatenteInput] = useState("AF123JK");
+  const [searchParams] = useSearchParams();
+  const patenteQuery = searchParams.get("patente");
+
+  const [patenteInput, setPatenteInput] = useState(patenteQuery || "AF123JK");
   const [ficha, setFicha] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Modal para alta de cliente + vehículo
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     nombre_completo: "",
@@ -58,9 +61,10 @@ export default function ClientesVehiculos() {
   };
 
   useEffect(() => {
-    // Búsqueda inicial automática de la patente que dimos de alta
-    buscarFicha("AF123JK");
-  }, []);
+    const inicial = patenteQuery || "AF123JK";
+    setPatenteInput(inicial.toUpperCase());
+    buscarFicha(inicial);
+  }, [patenteQuery]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -83,11 +87,11 @@ export default function ClientesVehiculos() {
         }),
       });
 
+      const nuevaPatente = formData.patente.trim().toUpperCase();
       setModalOpen(false);
-      setPatenteInput(formData.patente.toUpperCase());
-      buscarFicha(formData.patente.toUpperCase());
+      setPatenteInput(nuevaPatente);
+      buscarFicha(nuevaPatente);
 
-      // Limpiar formulario
       setFormData({
         nombre_completo: "",
         telefono: "",
@@ -106,33 +110,31 @@ export default function ClientesVehiculos() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-12">
+    <div className="min-h-screen bg-stone-100 text-stone-900 pb-12">
       <AdminNavbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Cabecera y Botón Nuevo */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">
-              Ficha Clínica de Vehículos
+            <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">
+              Historial Clínico por Patente
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Historial de mantenimiento, reparaciones previas y datos de
-              contacto.
+            <p className="text-sm text-stone-600">
+              Consultá qué aceite, filtros o arreglos se le hicieron antes a
+              cada vehículo.
             </p>
           </div>
 
           <button
             onClick={() => setModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2 self-start sm:self-auto shadow-lg shadow-blue-600/20"
+            className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm px-5 py-3 rounded-xl transition flex items-center gap-2 self-start sm:self-auto shadow-md"
           >
-            <Plus className="w-4 h-4" />
-            Nuevo Registro
+            <Plus className="w-5 h-5" />+ NUEVO CLIENTE Y AUTO
           </button>
         </div>
 
-        {/* Buscador Universal por Patente */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 mb-8 shadow-xl">
+        {/* Buscador Grande por Patente */}
+        <div className="bg-white border-2 border-stone-300 rounded-2xl p-5 mb-6 shadow-sm">
           <form
             onSubmit={handleSearchSubmit}
             className="flex flex-col sm:flex-row gap-3"
@@ -142,124 +144,110 @@ export default function ClientesVehiculos() {
                 type="text"
                 value={patenteInput}
                 onChange={(e) => setPatenteInput(e.target.value.toUpperCase())}
-                placeholder="Ingresá la patente (ej: AF123JK o AB123CD)..."
+                placeholder="Escribí la patente (ej: AF123JK)..."
                 maxLength={8}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 pl-11 text-base font-mono font-bold tracking-wider text-white uppercase focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-stone-100 border-2 border-stone-300 rounded-xl px-4 py-3 pl-12 text-lg font-mono font-black tracking-widest text-stone-900 uppercase focus:outline-none focus:border-amber-600"
               />
-              <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3" />
+              <Search className="w-5 h-5 text-stone-500 absolute left-4 top-3.5" />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors text-sm flex items-center justify-center min-w-[120px]"
+              className="bg-stone-900 hover:bg-stone-800 text-white font-extrabold px-7 py-3 rounded-xl transition text-sm"
             >
-              {loading ? "Buscando..." : "Buscar Ficha"}
+              {loading ? "Buscando..." : "BUSCAR PATENTE"}
             </button>
           </form>
 
           {error && (
-            <div className="mt-4 bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-xl flex items-center gap-2 text-xs">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <div className="mt-4 bg-red-100 border-l-4 border-red-600 text-red-900 p-3.5 rounded-r-xl flex items-center gap-2 text-sm font-bold">
+              <AlertCircle className="w-5 h-5 shrink-0" />
               <span>{error}</span>
             </div>
           )}
         </div>
 
-        {/* Detalle de Ficha Clínica */}
+        {/* Resultado de Ficha */}
         {ficha && (
           <div className="space-y-6">
-            {/* Tarjeta de Información Principal: Auto + Dueño */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Bloque Auto */}
-              <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-xs uppercase tracking-wider text-blue-400 font-semibold bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-md">
-                      Ficha de Unidad #{ficha.vehiculo.vehiculo_id}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Auto */}
+              <div className="md:col-span-2 bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-xs font-extrabold uppercase text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1 rounded-lg">
+                    Ficha Unidad #{ficha.vehiculo.vehiculo_id}
+                  </span>
+                  <span className="text-base font-mono font-black tracking-widest bg-stone-900 text-white px-3.5 py-1 rounded-lg">
+                    {ficha.vehiculo.patente}
+                  </span>
+                </div>
+
+                <h3 className="text-2xl font-extrabold text-stone-900 flex items-center gap-2.5">
+                  <Car className="w-7 h-7 text-amber-600" />
+                  {ficha.vehiculo.marca} {ficha.vehiculo.modelo}
+                </h3>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-5">
+                  <div className="bg-stone-100 p-3.5 rounded-xl border border-stone-200">
+                    <span className="text-xs font-bold text-stone-500 uppercase flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" /> Año
                     </span>
-                    <div className="bg-slate-950 border border-slate-800 px-3 py-1 rounded-lg">
-                      <span className="text-xs font-mono font-extrabold tracking-widest text-white">
-                        {ficha.vehiculo.patente}
-                      </span>
-                    </div>
+                    <span className="text-base font-extrabold text-stone-900 mt-1 block">
+                      {ficha.vehiculo.anio || "-"}
+                    </span>
                   </div>
 
-                  <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Car className="w-6 h-6 text-blue-400" />
-                    {ficha.vehiculo.marca} {ficha.vehiculo.modelo}
-                  </h3>
+                  <div className="bg-stone-100 p-3.5 rounded-xl border border-stone-200">
+                    <span className="text-xs font-bold text-stone-500 uppercase flex items-center gap-1">
+                      <Gauge className="w-3.5 h-3.5" /> Kilometraje
+                    </span>
+                    <span className="text-base font-extrabold text-emerald-700 mt-1 block font-mono">
+                      {Number(ficha.vehiculo.kilometraje).toLocaleString(
+                        "es-AR",
+                      )}{" "}
+                      km
+                    </span>
+                  </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6">
-                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block flex items-center gap-1">
-                        <Calendar className="w-3 h-3" /> Año
-                      </span>
-                      <span className="text-sm font-bold text-slate-200 mt-1 block">
-                        {ficha.vehiculo.anio || "No especificado"}
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block flex items-center gap-1">
-                        <Gauge className="w-3 h-3" /> Odómetro
-                      </span>
-                      <span className="text-sm font-bold text-emerald-400 mt-1 block font-mono">
-                        {Number(ficha.vehiculo.kilometraje).toLocaleString(
-                          "es-AR",
-                        )}{" "}
-                        km
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 col-span-2 sm:col-span-1">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block flex items-center gap-1">
-                        <History className="w-3 h-3" /> Total Visitas
-                      </span>
-                      <span className="text-sm font-bold text-blue-400 mt-1 block">
-                        {ficha.historial.length} servicios
-                      </span>
-                    </div>
+                  <div className="bg-stone-100 p-3.5 rounded-xl border border-stone-200 col-span-2 sm:col-span-1">
+                    <span className="text-xs font-bold text-stone-500 uppercase flex items-center gap-1">
+                      <History className="w-3.5 h-3.5" /> Visitas
+                    </span>
+                    <span className="text-base font-extrabold text-stone-900 mt-1 block">
+                      {ficha.historial.length} ingresos
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Bloque Propietario */}
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+              {/* Dueño */}
+              <div className="bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
                 <div>
-                  <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-3 block">
-                    Datos del Titular
+                  <span className="text-xs font-extrabold uppercase text-stone-500 mb-3 block">
+                    Datos del Cliente
                   </span>
-
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
-                      <User className="w-5 h-5" />
+                    <div className="w-11 h-11 rounded-xl bg-stone-200 flex items-center justify-center text-stone-800">
+                      <User className="w-6 h-6" />
                     </div>
                     <div>
-                      <h4 className="text-base font-bold text-white leading-tight">
+                      <h4 className="text-base font-extrabold text-stone-900">
                         {ficha.vehiculo.cliente_nombre}
                       </h4>
-                      <span className="text-xs text-slate-500">
-                        ID Cliente #{ficha.vehiculo.cliente_id}
+                      <span className="text-xs font-semibold text-stone-500">
+                        Cliente #{ficha.vehiculo.cliente_id}
                       </span>
                     </div>
                   </div>
 
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center gap-2.5 text-xs text-slate-300">
-                      <Phone className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                      <a
-                        href={`https://wa.me/549${ficha.vehiculo.cliente_telefono}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:text-blue-400 transition-colors font-mono"
-                      >
-                        +54 9 {ficha.vehiculo.cliente_telefono}
-                      </a>
+                  <div className="space-y-2 text-sm font-semibold text-stone-700">
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-stone-500" />
+                      <span>{ficha.vehiculo.cliente_telefono}</span>
                     </div>
-
                     {ficha.vehiculo.cliente_email && (
-                      <div className="flex items-center gap-2.5 text-xs text-slate-300">
-                        <Mail className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-stone-500" />
                         <span className="truncate">
                           {ficha.vehiculo.cliente_email}
                         </span>
@@ -268,91 +256,81 @@ export default function ClientesVehiculos() {
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-slate-800 mt-6">
-                  <a
-                    href={`https://wa.me/549${ficha.vehiculo.cliente_telefono}?text=Hola%20${encodeURIComponent(ficha.vehiculo.cliente_nombre)},%20te%20escribimos%20desde%20el%20taller`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-                  >
-                    Abrir Chat WhatsApp
-                  </a>
-                </div>
+                <a
+                  href={`https://wa.me/549${String(ficha.vehiculo.cliente_telefono || "").replace(/\D/g, "")}?text=Hola%20${encodeURIComponent(ficha.vehiculo.cliente_nombre)},%20te%20escribimos%20desde%20el%20taller`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-5 w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  ESCRIBIR POR WHATSAPP
+                </a>
               </div>
             </div>
 
-            {/* Historial Clínico de O.T. */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-              <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                <History className="w-4 h-4 text-blue-400" /> Historial de
-                Servicios Realizados
+            {/* Historial */}
+            <div className="bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm">
+              <h3 className="text-lg font-extrabold text-stone-900 mb-4 flex items-center gap-2">
+                <History className="w-5 h-5 text-amber-600" />
+                Trabajos y Repuestos Anteriores
               </h3>
 
               {ficha.historial.length === 0 ? (
-                <p className="text-xs text-slate-500 py-8 text-center">
-                  Este vehículo aún no cuenta con órdenes de trabajo cerradas o
-                  registradas.
+                <p className="text-sm text-stone-500 py-8 text-center font-medium">
+                  Este vehículo todavía no tiene trabajos anteriores
+                  registrados.
                 </p>
               ) : (
                 <div className="space-y-4">
                   {ficha.historial.map((ot) => (
                     <div
                       key={ot.ot_id}
-                      className="bg-slate-950 border border-slate-800/80 rounded-xl p-4 transition-colors"
+                      className="bg-stone-50 border-2 border-stone-200 rounded-xl p-4"
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-3 mb-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-2.5 mb-2.5">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">
+                          <span className="text-xs font-extrabold bg-stone-900 text-white px-2.5 py-0.5 rounded">
                             O.T. #{ot.ot_id}
                           </span>
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs font-bold text-stone-700">
                             {new Date(ot.fecha_ingreso).toLocaleDateString(
                               "es-AR",
                             )}
                           </span>
-                          <span className="text-[11px] font-mono text-slate-500">
-                            ·{" "}
+                          <span className="text-xs font-mono font-bold text-stone-500">
+                            •{" "}
                             {Number(ot.kilometraje_ingreso).toLocaleString(
                               "es-AR",
                             )}{" "}
                             km
                           </span>
                         </div>
-
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
+                          <span className="text-xs font-extrabold px-2.5 py-0.5 rounded bg-stone-200 text-stone-800">
                             {ot.estado}
                           </span>
-                          <span className="text-xs font-mono font-bold text-white ml-2">
+                          <span className="text-sm font-mono font-extrabold text-stone-900">
                             ${Number(ot.total_final).toLocaleString("es-AR")}
                           </span>
                         </div>
                       </div>
 
-                      <div className="text-xs text-slate-300 mb-3">
-                        <span className="text-slate-500 block text-[10px] uppercase tracking-wider mb-0.5">
-                          Diagnóstico / Falla:
-                        </span>
+                      <p className="text-sm text-stone-800 font-medium mb-2">
+                        <strong className="text-stone-600">Trabajo: </strong>
                         {ot.falla_declarada}
-                      </div>
+                      </p>
 
-                      {/* Repuestos colocados */}
                       {ot.repuestos && ot.repuestos.length > 0 && (
-                        <div>
-                          <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">
-                            Repuestos e Insumos instalados:
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {ot.repuestos.map((rep, idx) => (
-                              <span
-                                key={idx}
-                                className="bg-slate-900 border border-slate-800 text-slate-300 px-2 py-1 rounded-md text-[11px] font-mono"
-                              >
-                                {rep.descripcion} (x{rep.cantidad}) — $
-                                {Number(rep.subtotal).toLocaleString("es-AR")}
-                              </span>
-                            ))}
-                          </div>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {ot.repuestos.map((rep, idx) => (
+                            <span
+                              key={idx}
+                              className="bg-white border border-stone-300 text-stone-800 px-2.5 py-1 rounded-lg text-xs font-bold"
+                            >
+                              {rep.descripcion} (x{rep.cantidad}) — $
+                              {Number(rep.subtotal).toLocaleString("es-AR")}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -364,193 +342,179 @@ export default function ClientesVehiculos() {
         )}
       </main>
 
-      {/* Modal para Crear Cliente + Vehículo */}
+      {/* Modal Nuevo Cliente + Vehículo */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 my-8 text-slate-100 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border-2 border-stone-300 rounded-2xl max-w-lg w-full p-6 my-8 text-stone-900 shadow-2xl relative">
             <button
               onClick={() => setModalOpen(false)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-white"
+              className="absolute right-4 top-4 text-stone-500 hover:text-stone-900"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-base font-bold text-white mb-1">
-              Registrar Cliente y Vehículo
+            <h3 className="text-lg font-extrabold text-stone-900 mb-1">
+              Anotar Cliente y Vehículo Nuevo
             </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Crea la ficha para habilitar la apertura de órdenes de trabajo.
+            <p className="text-xs text-stone-600 mb-4">
+              Creá la ficha del auto para abrirle órdenes de trabajo.
             </p>
 
             {modalError && (
-              <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-xl flex items-center gap-2 mb-4 text-xs">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <div className="bg-red-100 border-l-4 border-red-600 text-red-900 p-3 rounded-r-xl flex items-center gap-2 mb-4 text-xs font-bold">
+                <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{modalError}</span>
               </div>
             )}
 
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
-              {/* Datos del Cliente */}
-              <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block border-b border-slate-800 pb-1">
-                  1. Titular
-                </span>
+            <form onSubmit={handleCreateSubmit} className="space-y-4 text-sm">
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">
+                  Nombre y Apellido del Cliente *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Marcelo Fernández"
+                  value={formData.nombre_completo}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      nombre_completo: e.target.value,
+                    })
+                  }
+                  className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Nombre Completo
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Teléfono WhatsApp *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="Ej: Marcelo Fernández"
-                    value={formData.nombre_completo}
+                    placeholder="Ej: 3435123456"
+                    value={formData.telefono}
+                    onChange={(e) =>
+                      setFormData({ ...formData, telefono: e.target.value })
+                    }
+                    className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Email (Opcional)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="cliente@gmail.com"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    className="w-full border-2 border-stone-300 rounded-xl px-3 py-2"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Patente *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="AA123BB"
+                    maxLength={8}
+                    value={formData.patente}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        nombre_completo: e.target.value,
+                        patente: e.target.value.toUpperCase(),
                       })
                     }
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 outline-none"
+                    className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-mono font-bold uppercase"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      Teléfono (WhatsApp)
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej: 3435123456"
-                      value={formData.telefono}
-                      onChange={(e) =>
-                        setFormData({ ...formData, telefono: e.target.value })
-                      }
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 outline-none font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      Email (Opcional)
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="correo@ejemplo.com"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 outline-none"
-                    />
-                  </div>
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Marca *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ford"
+                    value={formData.marca}
+                    onChange={(e) =>
+                      setFormData({ ...formData, marca: e.target.value })
+                    }
+                    className="w-full border-2 border-stone-300 rounded-xl px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Modelo *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ranger"
+                    value={formData.modelo}
+                    onChange={(e) =>
+                      setFormData({ ...formData, modelo: e.target.value })
+                    }
+                    className="w-full border-2 border-stone-300 rounded-xl px-3 py-2"
+                  />
                 </div>
               </div>
 
-              {/* Datos del Auto */}
-              <div className="space-y-3 pt-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block border-b border-slate-800 pb-1">
-                  2. Vehículo
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-1">
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      Patente
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="AA123BB"
-                      maxLength={8}
-                      value={formData.patente}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          patente: e.target.value.toUpperCase(),
-                        })
-                      }
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 outline-none font-mono font-bold uppercase"
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      Marca
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ford"
-                      value={formData.marca}
-                      onChange={(e) =>
-                        setFormData({ ...formData, marca: e.target.value })
-                      }
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 outline-none"
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      Modelo
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ranger"
-                      value={formData.modelo}
-                      onChange={(e) =>
-                        setFormData({ ...formData, modelo: e.target.value })
-                      }
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 outline-none"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Año
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.anio}
+                    onChange={(e) =>
+                      setFormData({ ...formData, anio: e.target.value })
+                    }
+                    className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-mono"
+                  />
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      Año
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.anio}
-                      onChange={(e) =>
-                        setFormData({ ...formData, anio: e.target.value })
-                      }
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 outline-none font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      Kilometraje Inicial
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.kilometraje}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          kilometraje: e.target.value,
-                        })
-                      }
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 outline-none font-mono"
-                    />
-                  </div>
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Kilometraje Actual
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.kilometraje}
+                    onChange={(e) =>
+                      setFormData({ ...formData, kilometraje: e.target.value })
+                    }
+                    className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-mono"
+                  />
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-2 border-t border-slate-800">
+              <div className="pt-4 flex justify-end gap-2 border-t border-stone-200">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl border border-stone-300 font-bold text-stone-700"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5"
+                  className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm px-5 py-2.5 rounded-xl flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  {submitting ? "Guardando..." : "Registrar"}
+                  {submitting ? "Guardando..." : "Guardar Ficha"}
                 </button>
               </div>
             </form>

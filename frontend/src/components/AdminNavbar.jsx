@@ -1,37 +1,37 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Wrench, Car, DollarSign, LogOut } from "lucide-react";
+import { Wrench, Car, DollarSign, LogOut, ShieldCheck } from "lucide-react";
 
 export default function AdminNavbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
 
   const navItems = [
-    { path: "/admin/ordenes", label: "Órdenes de Trabajo", icon: Wrench },
-    { path: "/admin/clientes", label: "Clientes y Fichas", icon: Car },
-    { path: "/admin/caja", label: "Caja Diaria", icon: DollarSign },
+    { path: "/admin/ordenes", label: "Órdenes en Taller", icon: Wrench },
+    { path: "/admin/clientes", label: "Historial por Patente", icon: Car },
+    { path: "/admin/caja", label: "Caja del Día", icon: DollarSign },
   ];
 
   return (
-    <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30">
+    <header className="bg-stone-900 text-white border-b-4 border-amber-500 sticky top-0 z-30 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Identidad */}
+        {/* Identidad del Taller */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-600/20 border border-blue-500/30 rounded-xl flex items-center justify-center text-blue-400">
+          <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-stone-950 shadow">
             <Wrench className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white tracking-wide leading-tight">
+            <h1 className="text-base font-extrabold text-white tracking-tight leading-tight">
               {user?.taller_nombre || "GestorCar"}
             </h1>
-            <span className="text-[11px] text-slate-400 block font-mono">
-              Operador: {user?.nombre?.split(" ")[0]} ({user?.rol})
+            <span className="text-xs text-stone-300 block">
+              {user?.nombre?.split(" ")[0]} • {user?.rol}
             </span>
           </div>
         </div>
 
-        {/* Links de Navegación */}
-        <nav className="flex items-center gap-1 sm:gap-2">
+        {/* Navegación Principal */}
+        <nav className="flex items-center gap-1.5 sm:gap-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -39,10 +39,10 @@ export default function AdminNavbar() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors ${
                   isActive
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                    ? "bg-amber-500 text-stone-950 shadow"
+                    : "text-stone-300 hover:text-white hover:bg-stone-800"
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -50,13 +50,23 @@ export default function AdminNavbar() {
               </Link>
             );
           })}
+
+          {user?.rol === "SUPERADMIN" && (
+            <Link
+              to="/superadmin"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-stone-800 text-amber-400 border border-amber-500/40 hover:bg-stone-700"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span className="hidden lg:inline">Consola Central</span>
+            </Link>
+          )}
         </nav>
 
         {/* Salir */}
         <button
           onClick={logout}
           title="Cerrar Sesión"
-          className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-2 rounded-xl border border-red-500/20 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-bold text-stone-200 hover:text-white bg-stone-800 hover:bg-red-600 px-3.5 py-2 rounded-xl transition-colors"
         >
           <LogOut className="w-4 h-4" />
           <span className="hidden sm:inline">Salir</span>
