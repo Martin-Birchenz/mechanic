@@ -8,6 +8,7 @@ const otRoutes = require("./routes/ot.routes");
 const cajaRoutes = require("./routes/caja.routes");
 const portalRoutes = require("./routes/portal.routes");
 const superAdminRoutes = require("./routes/superadmin.routes");
+const gestionRoutes = require("./routes/gestion.routes");
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use("/api/ordenes", otRoutes);
 app.use("/api/caja", cajaRoutes);
 app.use("/api/public", portalRoutes);
 app.use("/api/superadmin", superAdminRoutes);
+app.use("/api/gestion", gestionRoutes);
 
 // Manejador central de errores
 app.use(errorHandler);

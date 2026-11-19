@@ -7,6 +7,9 @@ import OrdenesTrabajo from "./pages/admin/OrdenesTrabajo";
 import CajaDiaria from "./pages/admin/CajaDiaria";
 import ClientesVehiculos from "./pages/admin/ClientesVehiculos";
 import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
+import StockRepuestos from "./pages/admin/StockRepuestos";
+import RecordatoriosService from "./pages/admin/RecordatoriosService";
+import MiTallerConfig from "./pages/admin/MiTallerConfig";
 
 function RequireSuperAdmin({ children }) {
   const { user, isAuthenticated, loading } = useAuth();
@@ -43,6 +46,12 @@ export default function App() {
             <Route path="/admin/ordenes" element={<OrdenesTrabajo />} />
             <Route path="/admin/clientes" element={<ClientesVehiculos />} />
             <Route path="/admin/caja" element={<CajaDiaria />} />
+            <Route path="/admin/stock" element={<StockRepuestos />} />
+            <Route
+              path="/admin/recordatorios"
+              element={<RecordatoriosService />}
+            />
+            <Route path="/admin/mi-taller" element={<MiTallerConfig />} />
           </Route>
 
           {/* Redirección por defecto */}

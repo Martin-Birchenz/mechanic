@@ -1,15 +1,27 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Wrench, Car, DollarSign, LogOut, ShieldCheck } from "lucide-react";
+import {
+  Wrench,
+  Car,
+  DollarSign,
+  LogOut,
+  ShieldCheck,
+  Package,
+  Bell,
+  Store,
+} from "lucide-react";
 
 export default function AdminNavbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
 
   const navItems = [
-    { path: "/admin/ordenes", label: "Órdenes en Taller", icon: Wrench },
-    { path: "/admin/clientes", label: "Historial por Patente", icon: Car },
-    { path: "/admin/caja", label: "Caja del Día", icon: DollarSign },
+    { path: "/admin/ordenes", label: "Órdenes", icon: Wrench },
+    { path: "/admin/clientes", label: "Patentes", icon: Car },
+    { path: "/admin/stock", label: "Stock", icon: Package },
+    { path: "/admin/recordatorios", label: "Services", icon: Bell },
+    { path: "/admin/caja", label: "Caja", icon: DollarSign },
+    { path: "/admin/mi-taller", label: "Mi Taller", icon: Store },
   ];
 
   return (

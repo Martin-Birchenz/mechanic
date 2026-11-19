@@ -1,427 +1,494 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "../../api/client";
 import AdminNavbar from "../../components/AdminNavbar";
 import {
   DollarSign,
-  ArrowUpRight,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  Calendar,
+  Plus,
+  Trash2,
   AlertCircle,
   CheckCircle2,
-  CreditCard,
-  Wallet,
-  Building2,
-  Calendar,
   X,
+  BarChart3,
 } from "lucide-react";
 
 export default function CajaDiaria() {
-  const [resumenDiario, setResumenDiario] = useState(null);
-  const [cuentasPendientes, setCuentasPendientes] = useState(null);
+  const hoy = new Date().toISOString().split("T")[0];
+  const [fecha, setFecha] = useState(hoy);
+  const [ingresos, setIngresos] = useState([]);
+  const [egresos, setEgresos] = useState([]);
+  const [metricasMes, setMetricasMes] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [successMsg, setSuccessMsg] = useState(null);
-  const [fechaSeleccionada, setFechaSeleccionada] = useState(
-    new Date().toISOString().split("T")[0],
-  );
 
-  // Modal de cobrar saldo pendiente
-  const [selectedOT, setSelectedOT] = useState(null);
-  const [montoCobro, setMontoCobro] = useState("");
-  const [metodoCobro, setMetodoCobro] = useState("EFECTIVO");
-  const [notasCobro, setNotasCobro] = useState("Cancelación de saldo");
-  const [submittingCobro, setSubmittingCobro] = useState(false);
-  const [modalError, setModalError] = useState(null);
+  // Modal registrar gasto
+  const [modalGastoOpen, setModalGastoOpen] = useState(false);
+  const [savingGasto, setSavingGasto] = useState(false);
+  const [gastoForm, setGastoForm] = useState({
+    concepto: "",
+    categoria: "INSUMOS",
+    monto: "",
+    metodo_pago: "EFECTIVO",
+  });
 
-  const cargarDatos = async () => {
+  const cargarCaja = useCallback(async () => {
     try {
       setLoading(true);
       setErrorMsg(null);
-      const [resDiario, resPendientes] = await Promise.all([
-        apiFetch(`/caja/diario?fecha=${fechaSeleccionada}`),
-        apiFetch("/caja/pendientes"),
+      const mesActual = fecha.slice(0, 7);
+
+      const [resIngresos, resEgresos, resMetricas] = await Promise.all([
+        apiFetch(`/pagos?fecha=${fecha}`).catch(() => ({ data: [] })),
+        apiFetch(`/gestion/egresos?fecha=${fecha}`),
+        apiFetch(`/gestion/metricas?mes=${mesActual}`),
       ]);
-      setResumenDiario(resDiario.data);
-      setCuentasPendientes(resPendientes.data);
+
+      setIngresos(resIngresos.data || []);
+      setEgresos(resEgresos.data || []);
+      setMetricasMes(resMetricas.data || null);
     } catch (err) {
-      setErrorMsg(err.message || "No se pudieron cargar los datos de caja");
+      setErrorMsg(err.message || "Error al cargar la caja diaria");
     } finally {
       setLoading(false);
     }
-  };
+  }, [fecha]);
 
   useEffect(() => {
-    cargarDatos();
-  }, [fechaSeleccionada]);
+    cargarCaja();
+  }, [cargarCaja]);
 
-  const handleOpenCobroModal = (ot) => {
-    setSelectedOT(ot);
-    setMontoCobro(ot.saldo_pendiente);
-    setModalError(null);
-  };
-
-  const handleRegistrarCobro = async (e) => {
+  const handleCrearGasto = async (e) => {
     e.preventDefault();
-    if (!selectedOT) return;
-
     try {
-      setSubmittingCobro(true);
-      setModalError(null);
-      await apiFetch(`/ordenes/${selectedOT.orden_id}/pagos`, {
+      setSavingGasto(true);
+      setErrorMsg(null);
+      await apiFetch("/gestion/egresos", {
         method: "POST",
         body: JSON.stringify({
-          monto: Number(montoCobro),
-          metodo_pago: metodoCobro,
-          notas: notasCobro,
+          ...gastoForm,
+          monto: Number(gastoForm.monto),
+          fecha: `${fecha} 12:00:00`,
         }),
       });
-
-      setSelectedOT(null);
-      setSuccessMsg(
-        `Cobro registrado con éxito en la Orden #${selectedOT.orden_id}`,
-      );
-      setTimeout(() => setSuccessMsg(null), 4000);
-      await cargarDatos();
+      setModalGastoOpen(false);
+      setGastoForm({
+        concepto: "",
+        categoria: "INSUMOS",
+        monto: "",
+        metodo_pago: "EFECTIVO",
+      });
+      cargarCaja();
     } catch (err) {
-      setModalError(err.message || "Error al registrar el cobro");
+      setErrorMsg(err.message);
     } finally {
-      setSubmittingCobro(false);
+      setSavingGasto(false);
     }
   };
 
-  const getMetodoIcon = (metodo) => {
-    switch (metodo) {
-      case "EFECTIVO":
-        return <Wallet className="w-4 h-4 text-emerald-700" />;
-      case "TRANSFERENCIA":
-        return <Building2 className="w-4 h-4 text-blue-700" />;
-      default:
-        return <CreditCard className="w-4 h-4 text-amber-700" />;
+  const handleEliminarGasto = async (id) => {
+    if (!window.confirm("¿Eliminar este gasto registrado?")) return;
+    try {
+      await apiFetch(`/gestion/egresos/${id}`, { method: "DELETE" });
+      cargarCaja();
+    } catch (err) {
+      setErrorMsg(err.message);
     }
   };
+
+  const totalIngresosDia = ingresos.reduce(
+    (acc, p) => acc + Number(p.monto || 0),
+    0,
+  );
+  const totalEgresosDia = egresos.reduce(
+    (acc, g) => acc + Number(g.monto || 0),
+    0,
+  );
+  const balanceNetoDia = totalIngresosDia - totalEgresosDia;
+
+  const ingresosEfectivo = ingresos
+    .filter((p) => p.metodo_pago === "EFECTIVO")
+    .reduce((acc, p) => acc + Number(p.monto || 0), 0);
+  const egresosEfectivo = egresos
+    .filter((g) => g.metodo_pago === "EFECTIVO")
+    .reduce((acc, g) => acc + Number(g.monto || 0), 0);
+  const efectivoEnCaja = ingresosEfectivo - egresosEfectivo;
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-900 pb-12">
       <AdminNavbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Alertas */}
-        {successMsg && (
-          <div className="mb-5 bg-emerald-100 border-l-4 border-emerald-600 text-emerald-900 p-4 rounded-r-xl flex items-center justify-between text-sm font-bold shadow-sm">
-            <span>{successMsg}</span>
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-          </div>
-        )}
-
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {errorMsg && (
-          <div className="mb-5 bg-red-100 border-l-4 border-red-600 text-red-900 p-4 rounded-r-xl flex items-center gap-2 text-sm font-bold shadow-sm">
+          <div className="bg-red-100 border-l-4 border-red-600 text-red-900 p-4 rounded-r-xl flex items-center gap-2 text-sm font-bold">
             <AlertCircle className="w-5 h-5 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
-        {/* Cabecera y Selector de Fecha */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        {/* CABECERA Y FILTRO DE FECHA */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">
-              Caja del Día y Cuentas a Cobrar
+              Caja Diaria y Balance del Taller
             </h2>
             <p className="text-sm text-stone-600">
-              Controlá la plata que entró hoy y los trabajos que quedaron con
-              saldo pendiente.
+              Control de cobros de órdenes, gastos de caja chica y rentabilidad
+              mensual.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-white border-2 border-stone-300 rounded-xl px-3 py-2 self-start sm:self-auto shadow-sm">
-            <Calendar className="w-4 h-4 text-stone-600" />
-            <input
-              type="date"
-              value={fechaSeleccionada}
-              onChange={(e) => setFechaSeleccionada(e.target.value)}
-              className="bg-transparent text-sm font-bold text-stone-900 outline-none font-mono"
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-white border-2 border-stone-300 rounded-xl px-3 py-2">
+              <Calendar className="w-4 h-4 text-stone-500" />
+              <input
+                type="date"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                className="text-sm font-mono font-bold text-stone-900 focus:outline-none"
+              />
+            </div>
+
+            <button
+              onClick={() => setModalGastoOpen(true)}
+              className="bg-red-600 hover:bg-red-500 text-white font-extrabold text-sm px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-md cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              REGISTRAR GASTO
+            </button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-16 text-stone-600 font-bold">
-            Calculando caja del taller...
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Tarjetas KPI */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* Ingresos del Día */}
-              <div className="bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-xs text-stone-500 font-extrabold uppercase tracking-wider">
-                      Plata Cobrada Hoy
-                    </span>
-                    <h3 className="text-3xl font-black text-emerald-700 font-mono mt-2">
-                      $
-                      {Number(resumenDiario?.total_cobrado || 0).toLocaleString(
-                        "es-AR",
-                      )}
-                    </h3>
-                  </div>
-                  <div className="w-11 h-11 bg-emerald-100 border border-emerald-300 rounded-xl flex items-center justify-center text-emerald-700">
-                    <ArrowUpRight className="w-6 h-6" />
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-stone-500 mt-4 block">
-                  Fecha: {fechaSeleccionada}
-                </span>
-              </div>
-
-              {/* Cuentas por Cobrar */}
-              <div className="bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-xs text-stone-500 font-extrabold uppercase tracking-wider">
-                      Total a Cobrar en la Calle
-                    </span>
-                    <h3 className="text-3xl font-black text-amber-700 font-mono mt-2">
-                      $
-                      {Number(
-                        cuentasPendientes?.total_deuda_global || 0,
-                      ).toLocaleString("es-AR")}
-                    </h3>
-                  </div>
-                  <div className="w-11 h-11 bg-amber-100 border border-amber-300 rounded-xl flex items-center justify-center text-amber-700">
-                    <AlertCircle className="w-6 h-6" />
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-stone-500 mt-4 block">
-                  {cuentasPendientes?.cantidad_ordenes_pendientes || 0} órdenes
-                  con saldo pendiente
-                </span>
-              </div>
-
-              {/* Desglose por Método */}
-              <div className="bg-white border-2 border-stone-300 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-                <span className="text-xs text-stone-500 font-extrabold uppercase tracking-wider mb-2 block">
-                  Cómo entró la plata hoy
-                </span>
-                <div className="space-y-2">
-                  {resumenDiario?.desglose_metodos?.length === 0 ? (
-                    <span className="text-xs font-semibold text-stone-500">
-                      Sin cobros registrados en esta fecha
-                    </span>
-                  ) : (
-                    resumenDiario?.desglose_metodos?.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex justify-between items-center text-sm"
-                      >
-                        <div className="flex items-center gap-2 font-bold text-stone-800">
-                          {getMetodoIcon(item.metodo_pago)}
-                          <span>{item.metodo_pago}</span>
-                        </div>
-                        <span className="font-mono font-extrabold text-stone-900">
-                          ${Number(item.subtotal).toLocaleString("es-AR")}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="border-t border-stone-200 pt-2 mt-2 text-xs font-semibold text-stone-500">
-                  {resumenDiario?.transacciones?.length || 0} cobros procesados
-                </div>
-              </div>
+        {/* KPIS DEL DÍA SELECCIONADO */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white border-2 border-stone-300 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between text-emerald-700 mb-1">
+              <span className="text-xs font-extrabold uppercase">
+                Ingresos del Día
+              </span>
+              <TrendingUp className="w-5 h-5" />
             </div>
+            <p className="text-2xl font-black text-emerald-700 font-mono">
+              ${totalIngresosDia.toLocaleString("es-AR")}
+            </p>
+            <p className="text-xs text-stone-500 mt-1">
+              {ingresos.length} cobro(s) registrado(s)
+            </p>
+          </div>
 
-            {/* Grilla 2 Columnas */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Cobros del Día */}
-              <div className="bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm">
-                <h3 className="text-base font-extrabold text-stone-900 mb-4 flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-emerald-700" />
-                  Cobros Registrados ({fechaSeleccionada})
-                </h3>
+          <div className="bg-white border-2 border-stone-300 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between text-red-600 mb-1">
+              <span className="text-xs font-extrabold uppercase">
+                Gastos del Día
+              </span>
+              <TrendingDown className="w-5 h-5" />
+            </div>
+            <p className="text-2xl font-black text-red-600 font-mono">
+              -${totalEgresosDia.toLocaleString("es-AR")}
+            </p>
+            <p className="text-xs text-stone-500 mt-1">
+              {egresos.length} egreso(s) de caja
+            </p>
+          </div>
 
-                {resumenDiario?.transacciones?.length === 0 ? (
-                  <p className="text-sm text-stone-500 py-8 text-center font-medium">
-                    No hubo ingresos cargados en esta fecha.
-                  </p>
-                ) : (
-                  <div className="divide-y divide-stone-200">
-                    {resumenDiario?.transacciones?.map((t) => (
-                      <div
-                        key={t.pago_id}
-                        className="py-3.5 flex justify-between items-center text-sm"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-black bg-stone-900 text-white px-2 py-0.5 rounded text-xs">
-                              {t.patente}
-                            </span>
-                            <span className="font-bold text-stone-800">
-                              {t.cliente_nombre}
-                            </span>
-                          </div>
-                          <span className="text-xs text-stone-500 block mt-1">
-                            O.T. #{t.orden_id} — {t.notas || t.metodo_pago}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-mono font-extrabold text-emerald-700 text-base">
-                            +${Number(t.monto).toLocaleString("es-AR")}
-                          </span>
-                          <span className="text-[11px] font-bold text-stone-500 block uppercase">
-                            {t.metodo_pago}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          <div className="bg-white border-2 border-stone-300 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between text-stone-800 mb-1">
+              <span className="text-xs font-extrabold uppercase">
+                Balance Neto Día
+              </span>
+              <DollarSign className="w-5 h-5" />
+            </div>
+            <p
+              className={`text-2xl font-black font-mono ${
+                balanceNetoDia >= 0 ? "text-stone-900" : "text-red-600"
+              }`}
+            >
+              ${balanceNetoDia.toLocaleString("es-AR")}
+            </p>
+            <p className="text-xs text-stone-500 mt-1">Ingresos menos gastos</p>
+          </div>
+
+          <div className="bg-stone-900 text-white rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between text-amber-400 mb-1">
+              <span className="text-xs font-extrabold uppercase">
+                Efectivo Físico en Caja
+              </span>
+              <Wallet className="w-5 h-5" />
+            </div>
+            <p className="text-2xl font-black font-mono text-white">
+              ${efectivoEnCaja.toLocaleString("es-AR")}
+            </p>
+            <p className="text-xs text-stone-400 mt-1">
+              Arqueo billetes del día
+            </p>
+          </div>
+        </div>
+
+        {/* RESUMEN MENSUAL ACUMULADO */}
+        {metricasMes && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5">
+            <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm uppercase mb-3">
+              <BarChart3 className="w-4 h-4" />
+              <span>Acumulado del Mes ({metricasMes.mes})</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
+              <div>
+                <span className="text-xs text-stone-600 block">
+                  Facturado Mes
+                </span>
+                <strong className="text-base font-mono font-black text-emerald-800">
+                  ${Number(metricasMes.total_ingresos).toLocaleString("es-AR")}
+                </strong>
               </div>
-
-              {/* Cuentas por Cobrar */}
-              <div className="bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm">
-                <h3 className="text-base font-extrabold text-stone-900 mb-4 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-amber-600" />
-                  Trabajos con Saldo Pendiente
-                </h3>
-
-                {cuentasPendientes?.ordenes?.length === 0 ? (
-                  <div className="py-8 text-center text-stone-600 text-sm font-bold flex flex-col items-center">
-                    <CheckCircle2 className="w-9 h-9 text-emerald-600 mb-2" />
-                    ¡Todo cobrado! No hay órdenes con saldo pendiente.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-stone-200">
-                    {cuentasPendientes?.ordenes?.map((ot) => (
-                      <div
-                        key={ot.orden_id}
-                        className="py-3.5 flex flex-wrap justify-between items-center gap-3 text-sm"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-black bg-stone-900 text-white px-2 py-0.5 rounded text-xs">
-                              {ot.patente}
-                            </span>
-                            <span className="font-extrabold text-stone-900">
-                              {ot.cliente_nombre}
-                            </span>
-                          </div>
-                          <span className="text-xs text-stone-600 block mt-1">
-                            {ot.marca} {ot.modelo} • Estado:{" "}
-                            <strong>{ot.estado}</strong>
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <span className="font-mono font-extrabold text-amber-700 text-base block">
-                              $
-                              {Number(ot.saldo_pendiente).toLocaleString(
-                                "es-AR",
-                              )}
-                            </span>
-                            <span className="text-[11px] font-semibold text-stone-500">
-                              Total: $
-                              {Number(ot.total_final).toLocaleString("es-AR")}
-                            </span>
-                          </div>
-
-                          <button
-                            onClick={() => handleOpenCobroModal(ot)}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition shadow-sm"
-                          >
-                            COBRAR
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div>
+                <span className="text-xs text-stone-600 block">Gastos Mes</span>
+                <strong className="text-base font-mono font-black text-red-700">
+                  -${Number(metricasMes.total_egresos).toLocaleString("es-AR")}
+                </strong>
+              </div>
+              <div>
+                <span className="text-xs text-stone-600 block">
+                  Ganancia Neta Mes
+                </span>
+                <strong className="text-base font-mono font-black text-stone-900">
+                  ${Number(metricasMes.balance_neto).toLocaleString("es-AR")}
+                </strong>
+              </div>
+              <div>
+                <span className="text-xs text-stone-600 block">
+                  Autos Atendidos
+                </span>
+                <strong className="text-base font-mono font-black text-stone-900">
+                  {metricasMes.cant_ordenes}
+                </strong>
+              </div>
+              <div>
+                <span className="text-xs text-stone-600 block">
+                  Ticket Promedio
+                </span>
+                <strong className="text-base font-mono font-black text-stone-900">
+                  ${Number(metricasMes.ticket_promedio).toLocaleString("es-AR")}
+                </strong>
               </div>
             </div>
           </div>
         )}
+
+        {/* TABLAS DE MOVIMIENTOS DEL DÍA */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* INGRESOS */}
+          <div className="bg-white border-2 border-stone-300 rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-emerald-50 border-b-2 border-stone-300 px-5 py-3.5 flex justify-between items-center">
+              <h3 className="font-extrabold text-emerald-950 text-sm uppercase">
+                Ingresos / Cobros de Órdenes
+              </h3>
+              <span className="font-mono font-black text-sm text-emerald-800">
+                ${totalIngresosDia.toLocaleString("es-AR")}
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="p-6 text-center text-sm font-bold text-stone-500">
+                Cargando...
+              </div>
+            ) : ingresos.length === 0 ? (
+              <div className="p-8 text-center text-sm text-stone-500">
+                No se registraron cobros en esta fecha.
+              </div>
+            ) : (
+              <div className="divide-y divide-stone-200">
+                {ingresos.map((pago) => (
+                  <div
+                    key={pago.id}
+                    className="p-4 flex items-center justify-between text-sm"
+                  >
+                    <div>
+                      <p className="font-extrabold text-stone-900">
+                        {pago.patente
+                          ? `Patente ${pago.patente}`
+                          : `Orden #${pago.orden_id}`}
+                        {pago.cliente_nombre ? ` — ${pago.cliente_nombre}` : ""}
+                      </p>
+                      <p className="text-xs text-stone-500 font-semibold">
+                        Medio: {pago.metodo_pago}
+                        {pago.notas ? ` • ${pago.notas}` : ""}
+                      </p>
+                    </div>
+                    <span className="font-mono font-black text-emerald-700">
+                      +${Number(pago.monto).toLocaleString("es-AR")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* EGRESOS */}
+          <div className="bg-white border-2 border-stone-300 rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-red-50 border-b-2 border-stone-300 px-5 py-3.5 flex justify-between items-center">
+              <h3 className="font-extrabold text-red-950 text-sm uppercase">
+                Egresos / Gastos de Caja Chica
+              </h3>
+              <span className="font-mono font-black text-sm text-red-700">
+                -${totalEgresosDia.toLocaleString("es-AR")}
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="p-6 text-center text-sm font-bold text-stone-500">
+                Cargando...
+              </div>
+            ) : egresos.length === 0 ? (
+              <div className="p-8 text-center text-sm text-stone-500">
+                No se registraron gastos en esta fecha.
+              </div>
+            ) : (
+              <div className="divide-y divide-stone-200">
+                {egresos.map((gasto) => (
+                  <div
+                    key={gasto.id}
+                    className="p-4 flex items-center justify-between text-sm"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-stone-200 text-stone-800">
+                          {gasto.categoria}
+                        </span>
+                        <p className="font-extrabold text-stone-900">
+                          {gasto.concepto}
+                        </p>
+                      </div>
+                      <p className="text-xs text-stone-500 font-semibold mt-0.5">
+                        Pago: {gasto.metodo_pago}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-black text-red-600">
+                        -${Number(gasto.monto).toLocaleString("es-AR")}
+                      </span>
+                      <button
+                        onClick={() => handleEliminarGasto(gasto.id)}
+                        title="Eliminar gasto"
+                        className="text-stone-400 hover:text-red-600 p-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </main>
 
-      {/* Modal Registrar Cobro */}
-      {selectedOT && (
+      {/* MODAL REGISTRAR GASTO */}
+      {modalGastoOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-stone-300 rounded-2xl max-w-sm w-full p-6 text-stone-900 shadow-2xl relative">
+          <div className="bg-white border-2 border-stone-300 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
             <button
-              onClick={() => setSelectedOT(null)}
-              className="absolute right-4 top-4 text-stone-500 hover:text-stone-900"
+              onClick={() => setModalGastoOpen(false)}
+              className="absolute right-4 top-4 text-stone-500 hover:text-stone-900 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
-
-            <h3 className="text-lg font-extrabold text-stone-900 mb-1">
-              Anotar Cobro en Caja
+            <h3 className="text-lg font-extrabold text-stone-900 mb-4">
+              Registrar Egreso / Gasto de Taller
             </h3>
-            <p className="text-xs font-semibold text-stone-600 mb-4">
-              O.T. #{selectedOT.orden_id} — {selectedOT.patente} (
-              {selectedOT.cliente_nombre})
-            </p>
-
-            {modalError && (
-              <div className="bg-red-100 border-l-4 border-red-600 text-red-900 p-3 rounded-r-xl flex items-center gap-2 mb-3 text-xs font-bold">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{modalError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleRegistrarCobro} className="space-y-3 text-sm">
+            <form onSubmit={handleCrearGasto} className="space-y-3 text-sm">
               <div>
                 <label className="block font-bold text-stone-700 mb-1">
-                  Monto que paga ($)
-                </label>
-                <input
-                  type="number"
-                  required
-                  value={montoCobro}
-                  onChange={(e) => setMontoCobro(e.target.value)}
-                  className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 text-base font-extrabold font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-700 mb-1">
-                  Forma de Pago
-                </label>
-                <select
-                  value={metodoCobro}
-                  onChange={(e) => setMetodoCobro(e.target.value)}
-                  className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-bold"
-                >
-                  <option value="EFECTIVO">Efectivo</option>
-                  <option value="TRANSFERENCIA">Transferencia</option>
-                  <option value="TARJETA">Tarjeta</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-700 mb-1">
-                  Observación / Nota
+                  Concepto / Detalle *
                 </label>
                 <input
                   type="text"
-                  value={notasCobro}
-                  onChange={(e) => setNotasCobro(e.target.value)}
-                  className="w-full border-2 border-stone-300 rounded-xl px-3 py-2"
+                  required
+                  placeholder="Ej: Compra de precintos, limpiacontactos y estopa"
+                  value={gastoForm.concepto}
+                  onChange={(e) =>
+                    setGastoForm({ ...gastoForm, concepto: e.target.value })
+                  }
+                  className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Categoría
+                  </label>
+                  <select
+                    value={gastoForm.categoria}
+                    onChange={(e) =>
+                      setGastoForm({ ...gastoForm, categoria: e.target.value })
+                    }
+                    className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-semibold"
+                  >
+                    <option value="INSUMOS">Insumos / Repuestos</option>
+                    <option value="SERVICIOS">
+                      Servicios (Luz, Agua, Internet)
+                    </option>
+                    <option value="SUELDOS">Sueldos / Adelantos</option>
+                    <option value="VARIOS">Varios</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Medio de Pago
+                  </label>
+                  <select
+                    value={gastoForm.metodo_pago}
+                    onChange={(e) =>
+                      setGastoForm({
+                        ...gastoForm,
+                        metodo_pago: e.target.value,
+                      })
+                    }
+                    className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-semibold"
+                  >
+                    <option value="EFECTIVO">Efectivo</option>
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                    <option value="TARJETA">Tarjeta</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">
+                  Monto ($) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  required
+                  placeholder="0.00"
+                  value={gastoForm.monto}
+                  onChange={(e) =>
+                    setGastoForm({ ...gastoForm, monto: e.target.value })
+                  }
+                  className="w-full border-2 border-stone-300 rounded-xl px-3 py-2 font-mono font-bold text-base"
                 />
               </div>
 
               <div className="pt-3 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedOT(null)}
-                  className="px-4 py-2 rounded-xl border border-stone-300 font-bold text-stone-700"
+                  onClick={() => setModalGastoOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-stone-300 font-bold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingCobro}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl"
+                  disabled={savingGasto}
+                  className="bg-red-600 hover:bg-red-500 text-white font-extrabold px-5 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
                 >
-                  {submittingCobro ? "Guardando..." : "CONFIRMAR COBRO"}
+                  <CheckCircle2 className="w-4 h-4" />
+                  {savingGasto ? "Guardando..." : "Guardar Gasto"}
                 </button>
               </div>
             </form>
