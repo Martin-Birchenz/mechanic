@@ -46,7 +46,7 @@ export default function Login() {
             <Wrench className="w-7 h-7 text-stone-950" />
           </div>
           <h1 className="text-2xl font-black text-stone-900 tracking-tight">
-            GestorCar
+            GestoCar
           </h1>
           <p className="text-sm font-semibold text-stone-600 mt-1">
             Ingreso al Sistema del Taller
@@ -108,7 +108,7 @@ export default function Login() {
 
         <div className="mt-7 text-center border-t border-stone-200 pt-4">
           <p className="text-xs font-semibold text-stone-500">
-            GestorCar • Administración de Talleres Mecánicos
+            GestoCar • Administración de Talleres Mecánicos
           </p>
         </div>
       </div>
