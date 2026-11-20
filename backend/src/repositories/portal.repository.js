@@ -3,9 +3,12 @@ const pool = require("../config/db");
 class PortalRepository {
   async findTallerBySlug(slug) {
     const query = `
-      SELECT id, nombre, telefono, direccion, slug
+      SELECT id, nombre, telefono, direccion, slug, horarios, logo_url, descripcion_servicios
       FROM talleres
-      WHERE slug = ? AND is_active = 1 AND deleted_at IS NULL
+      WHERE LOWER(TRIM(slug)) = LOWER(TRIM(?))
+        AND (activo = 1 OR is_active = 1)
+        AND tiene_portal_publico = 1
+        AND deleted_at IS NULL
       LIMIT 1
     `;
     const [rows] = await pool.execute(query, [slug]);
@@ -51,7 +54,7 @@ class PortalRepository {
       INNER JOIN vehiculos v ON ot.vehiculo_id = v.id
       INNER JOIN clientes c ON v.cliente_id = c.id
       WHERE ot.taller_id = ? 
-        AND v.patente = ? 
+        AND TRIM(UPPER(v.patente)) = TRIM(UPPER(?))
         AND ot.deleted_at IS NULL
       ORDER BY ot.fecha_ingreso DESC
       LIMIT 1

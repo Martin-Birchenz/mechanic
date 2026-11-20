@@ -122,7 +122,7 @@ export default function StockRepuestos() {
             onClick={() => setModalOpen(true)}
             className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm px-5 py-3 rounded-xl flex items-center gap-2 shadow-md self-start"
           >
-            <Plus className="w-5 h-5" />+ AGREGAR REPUESTO
+            <Plus className="w-5 h-5" /> AGREGAR REPUESTO
           </button>
         </div>
 

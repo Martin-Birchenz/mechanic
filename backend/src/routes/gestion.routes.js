@@ -49,4 +49,20 @@ router.put("/mi-taller", (req, res, next) =>
   gestionController.actualizarMiTaller(req, res, next),
 );
 
+router.get("/vehiculos-lista", async (req, res, next) => {
+  try {
+    const [rows] = await require("../config/db").query(
+      `SELECT v.id, v.patente, v.marca, v.modelo, v.kilometraje, c.nombre_completo AS cliente_nombre, c.telefono
+       FROM vehiculos v
+       JOIN clientes c ON v.cliente_id = c.id
+       WHERE v.taller_id = ? AND v.deleted_at IS NULL
+       ORDER BY v.id DESC`,
+      [req.tallerId],
+    );
+    res.status(200).json({ status: "success", data: rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

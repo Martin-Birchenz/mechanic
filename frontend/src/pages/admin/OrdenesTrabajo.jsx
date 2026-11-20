@@ -212,7 +212,7 @@ export default function OrdenesTrabajo() {
               onClick={() => setModalOpen(true)}
               className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm px-5 py-3 rounded-xl transition flex items-center gap-2 shadow-md"
             >
-              <Plus className="w-5 h-5" />+ INGRESAR AUTO / O.T.
+              <Plus className="w-5 h-5" /> INGRESAR AUTO / O.T.
             </button>
           </div>
         </div>

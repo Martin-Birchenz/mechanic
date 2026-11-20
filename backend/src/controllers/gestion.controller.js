@@ -81,7 +81,9 @@ class GestionController {
         `SELECT COALESCE(SUM(p.monto), 0) AS total_ingresos, COUNT(p.id) AS cant_cobros
          FROM pagos p
          JOIN ordenes_trabajo o ON p.orden_id = o.id
-         WHERE o.taller_id = ? AND DATE_FORMAT(p.fecha_pago, '%Y-%m') = ?`,
+         WHERE o.taller_id = ? 
+           AND p.deleted_at IS NULL 
+           AND DATE_FORMAT(p.created_at, '%Y-%m') = ?`,
         [req.tallerId, mes],
       );
 
@@ -95,7 +97,7 @@ class GestionController {
       const [[ordenesRow]] = await pool.query(
         `SELECT COUNT(*) AS cant_ordenes, COALESCE(AVG(total_final), 0) AS ticket_promedio
          FROM ordenes_trabajo
-         WHERE taller_id = ? AND DATE_FORMAT(fecha_ingreso, '%Y-%m') = ?`,
+         WHERE taller_id = ? AND deleted_at IS NULL AND DATE_FORMAT(fecha_ingreso, '%Y-%m') = ?`,
         [req.tallerId, mes],
       );
 
