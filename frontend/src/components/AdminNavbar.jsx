@@ -23,11 +23,11 @@ export default function AdminNavbar() {
   const handleLogout = () => {
     setMobileOpen(false);
     logout();
-    navigate("/admin/login");
+    navigate("/login");
   };
 
   const navItems = [
-    { to: "/admin/tablero", label: "Tablero", icon: LayoutDashboard },
+    { to: "/admin/ordenes", label: "Tablero", icon: LayoutDashboard },
     { to: "/admin/clientes", label: "Clientes y Fichas", icon: Users },
     { to: "/admin/caja", label: "Caja y Gastos", icon: DollarSign },
     { to: "/admin/stock", label: "Stock", icon: Package },
@@ -36,7 +36,7 @@ export default function AdminNavbar() {
       label: "Próximo Service",
       icon: CalendarClock,
     },
-    { to: "/admin/taller", label: "Mi Taller", icon: Settings },
+    { to: "/admin/mi-taller", label: "Mi Taller", icon: Settings },
   ];
 
   const desktopLinkClass = ({ isActive }) =>

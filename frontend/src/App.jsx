@@ -52,6 +52,10 @@ export default function App() {
               element={<RecordatoriosService />}
             />
             <Route path="/admin/mi-taller" element={<MiTallerConfig />} />
+            <Route
+              path="/admin/tablero"
+              element={<Navigate replace to="/admin/ordenes" />}
+            />
           </Route>
 
           {/* Redirección por defecto */}
