@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { apiFetch } from "../../api/client";
 import AdminNavbar from "../../components/AdminNavbar";
@@ -16,17 +16,21 @@ import {
   X,
   CheckCircle2,
   MessageCircle,
+  Users,
 } from "lucide-react";
 
 export default function ClientesVehiculos() {
   const [searchParams] = useSearchParams();
   const patenteQuery = searchParams.get("patente");
 
-  const [patenteInput, setPatenteInput] = useState(patenteQuery || "AF123JK");
+  const [listaVehiculos, setListaVehiculos] = useState([]);
+  const [loadingLista, setLoadingLista] = useState(true);
+  const [patenteInput, setPatenteInput] = useState(patenteQuery || "");
   const [ficha, setFicha] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingFicha, setLoadingFicha] = useState(false);
   const [error, setError] = useState(null);
 
+  // Modal nuevo cliente + vehículo
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     nombre_completo: "",
@@ -41,34 +45,60 @@ export default function ClientesVehiculos() {
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState(null);
 
+  const cargarTodosLosVehiculos = async () => {
+    try {
+      setLoadingLista(true);
+      const res = await apiFetch("/gestion/vehiculos-lista");
+      setListaVehiculos(res.data || []);
+    } catch {
+      setListaVehiculos([]);
+    } finally {
+      setLoadingLista(false);
+    }
+  };
+
   const buscarFicha = async (patenteTarget) => {
-    const pat = patenteTarget || patenteInput;
-    if (!pat.trim()) return;
+    const pat = (patenteTarget || patenteInput).trim().toUpperCase();
+    if (!pat) return;
 
     try {
-      setLoading(true);
+      setLoadingFicha(true);
       setError(null);
-      const res = await apiFetch(
-        `/clientes-vehiculos/patente/${pat.trim().toUpperCase()}`,
-      );
+      const res = await apiFetch(`/clientes-vehiculos/patente/${pat}`);
       setFicha(res.data);
+      setPatenteInput(pat);
     } catch (err) {
       setError(err.message || "No se encontró el vehículo solicitado");
       setFicha(null);
     } finally {
-      setLoading(false);
+      setLoadingFicha(false);
     }
   };
 
   useEffect(() => {
-    const inicial = patenteQuery || "AF123JK";
-    setPatenteInput(inicial.toUpperCase());
-    buscarFicha(inicial);
+    cargarTodosLosVehiculos();
+    if (patenteQuery) {
+      buscarFicha(patenteQuery);
+    }
   }, [patenteQuery]);
+
+  const vehiculosFiltrados = useMemo(() => {
+    const q = patenteInput.trim().toLowerCase();
+    if (!q) return listaVehiculos;
+    return listaVehiculos.filter(
+      (v) =>
+        v.patente?.toLowerCase().includes(q) ||
+        v.cliente_nombre?.toLowerCase().includes(q) ||
+        v.marca?.toLowerCase().includes(q) ||
+        v.modelo?.toLowerCase().includes(q),
+    );
+  }, [listaVehiculos, patenteInput]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    buscarFicha();
+    if (patenteInput.trim()) {
+      buscarFicha(patenteInput);
+    }
   };
 
   const handleCreateSubmit = async (e) => {
@@ -77,19 +107,19 @@ export default function ClientesVehiculos() {
     setModalError(null);
 
     try {
+      const nuevaPatente = formData.patente.trim().toUpperCase();
       await apiFetch("/clientes-vehiculos", {
         method: "POST",
         body: JSON.stringify({
           ...formData,
-          patente: formData.patente.trim().toUpperCase(),
+          patente: nuevaPatente,
           anio: Number(formData.anio) || undefined,
           kilometraje: Number(formData.kilometraje) || 0,
         }),
       });
 
-      const nuevaPatente = formData.patente.trim().toUpperCase();
       setModalOpen(false);
-      setPatenteInput(nuevaPatente);
+      await cargarTodosLosVehiculos();
       buscarFicha(nuevaPatente);
 
       setFormData({
@@ -117,11 +147,11 @@ export default function ClientesVehiculos() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">
-              Historial Clínico por Patente
+              Clientes y Fichas de Vehículos
             </h2>
             <p className="text-sm text-stone-600">
-              Consultá qué aceite, filtros o arreglos se le hicieron antes a
-              cada vehículo.
+              Seleccioná un vehículo de la lista o buscá por patente para ver su
+              historial completo.
             </p>
           </div>
 
@@ -129,11 +159,12 @@ export default function ClientesVehiculos() {
             onClick={() => setModalOpen(true)}
             className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm px-5 py-3 rounded-xl transition flex items-center gap-2 self-start sm:self-auto shadow-md"
           >
-            <Plus className="w-5 h-5" /> NUEVO CLIENTE Y AUTO
+            <Plus className="w-5 h-5" />
+            Ingresar Auto
           </button>
         </div>
 
-        {/* Buscador Grande por Patente */}
+        {/* Buscador y Filtro */}
         <div className="bg-white border-2 border-stone-300 rounded-2xl p-5 mb-6 shadow-sm">
           <form
             onSubmit={handleSearchSubmit}
@@ -143,19 +174,24 @@ export default function ClientesVehiculos() {
               <input
                 type="text"
                 value={patenteInput}
-                onChange={(e) => setPatenteInput(e.target.value.toUpperCase())}
-                placeholder="Escribí la patente (ej: AF123JK)..."
-                maxLength={8}
-                className="w-full bg-stone-100 border-2 border-stone-300 rounded-xl px-4 py-3 pl-12 text-lg font-mono font-black tracking-widest text-stone-900 uppercase focus:outline-none focus:border-amber-600"
+                onChange={(e) => {
+                  setPatenteInput(e.target.value.toUpperCase());
+                  if (!e.target.value.trim()) {
+                    setFicha(null);
+                    setError(null);
+                  }
+                }}
+                placeholder="Filtrar por cliente o escribí la patente exacta (ej: AA123BB)..."
+                className="w-full bg-stone-100 border-2 border-stone-300 rounded-xl px-4 py-3 pl-12 text-base font-bold text-stone-900 focus:outline-none focus:border-amber-600"
               />
               <Search className="w-5 h-5 text-stone-500 absolute left-4 top-3.5" />
             </div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loadingFicha}
               className="bg-stone-900 hover:bg-stone-800 text-white font-extrabold px-7 py-3 rounded-xl transition text-sm"
             >
-              {loading ? "Buscando..." : "BUSCAR PATENTE"}
+              {loadingFicha ? "Buscando..." : "ABRIR FICHA"}
             </button>
           </form>
 
@@ -167,11 +203,77 @@ export default function ClientesVehiculos() {
           )}
         </div>
 
-        {/* Resultado de Ficha */}
+        {/* Lista General de Clientes y Autos del Taller */}
+        <div className="bg-white border-2 border-stone-300 rounded-2xl p-6 mb-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-extrabold text-stone-900 flex items-center gap-2">
+              <Users className="w-5 h-5 text-amber-600" />
+              Todos los Clientes y Vehículos ({vehiculosFiltrados.length})
+            </h3>
+            {ficha && (
+              <button
+                onClick={() => {
+                  setFicha(null);
+                  setPatenteInput("");
+                  setError(null);
+                }}
+                className="text-xs font-extrabold text-amber-700 hover:underline"
+              >
+                Limpiar selección
+              </button>
+            )}
+          </div>
+
+          {loadingLista ? (
+            <p className="text-sm text-stone-500 py-4">Cargando clientes...</p>
+          ) : vehiculosFiltrados.length === 0 ? (
+            <div className="text-center py-8 text-stone-500 text-sm">
+              Todavía no hay clientes cargados en este taller. Tocá{" "}
+              <strong className="text-stone-900">"Ingresar Auto"</strong> para
+              registrar el primero.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {vehiculosFiltrados.map((v) => {
+                const seleccionado = ficha?.vehiculo?.patente === v.patente;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => buscarFicha(v.patente)}
+                    className={`text-left p-4 rounded-xl border-2 transition flex items-center justify-between gap-3 ${
+                      seleccionado
+                        ? "bg-amber-50 border-amber-500 shadow-sm"
+                        : "bg-stone-50 border-stone-200 hover:border-stone-400"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono font-black text-xs bg-stone-900 text-white px-2.5 py-0.5 rounded">
+                          {v.patente}
+                        </span>
+                        <span className="text-xs font-extrabold text-stone-900 truncate">
+                          {v.marca} {v.modelo}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-stone-600 truncate">
+                        {v.cliente_nombre} · {v.telefono}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-extrabold text-amber-700 shrink-0">
+                      Ver ficha →
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Detalle de Ficha Clínica cuando selecciona uno */}
         {ficha && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* Auto */}
               <div className="md:col-span-2 bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-xs font-extrabold uppercase text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1 rounded-lg">
@@ -220,7 +322,6 @@ export default function ClientesVehiculos() {
                 </div>
               </div>
 
-              {/* Dueño */}
               <div className="bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
                 <div>
                   <span className="text-xs font-extrabold uppercase text-stone-500 mb-3 block">

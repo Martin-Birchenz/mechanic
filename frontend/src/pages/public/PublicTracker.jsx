@@ -11,6 +11,7 @@ import {
   Car,
   ShieldCheck,
   MessageCircle,
+  MessageSquare,
   ExternalLink,
   AlertCircle,
   Sparkles,
@@ -21,7 +22,7 @@ import {
 const ESTADOS_ORDEN = [
   { key: "INGRESADO", label: "Recibido" },
   { key: "EN_DIAGNOSTICO", label: "Diagnóstico" },
-  { key: "ESPERANDO_REPUESTOS", label: "Repuestos" },
+  { key: "ESPERANDO_REPUESTO", label: "Repuestos" },
   { key: "EN_REPARACION", label: "En Taller" },
   { key: "LISTO", label: "Listo" },
 ];
@@ -34,8 +35,19 @@ export default function PublicTracker() {
 
   const [patente, setPatente] = useState("");
   const [buscando, setBuscando] = useState(false);
-  const [orden, setOrden] = useState(null);
+  const [resultado, setResultado] = useState(null);
   const [errorBusqueda, setErrorBusqueda] = useState(null);
+
+  // Asistente Virtual Flotante
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState([
+    {
+      from: "bot",
+      text: "¡Hola! Soy el asistente virtual del taller. Escribí tu patente (ej: AA123BB) y te digo al instante cómo viene tu auto.",
+    },
+  ]);
+  const [botLoading, setBotLoading] = useState(false);
 
   useEffect(() => {
     const cargarTaller = async () => {
@@ -62,11 +74,31 @@ export default function PublicTracker() {
 
     setBuscando(true);
     setErrorBusqueda(null);
-    setOrden(null);
+    setResultado(null);
 
     try {
       const res = await apiFetch(`/public/${slug}/patente/${cleanPatente}`);
-      setOrden(res.data);
+      const raw = res.data || {};
+      // Normalizamos tanto si viene anidado { vehiculo, orden } como plano
+      const vehiculo = raw.vehiculo || {
+        patente: raw.patente || cleanPatente,
+        marca: raw.marca || "",
+        modelo: raw.modelo || "",
+      };
+      const ordenObj = raw.orden || raw;
+
+      setResultado({
+        vehiculo,
+        orden: {
+          id: ordenObj.id || ordenObj.orden_id,
+          estado: ordenObj.estado || "INGRESADO",
+          falla_declarada: ordenObj.falla_declarada || "En revisión técnica",
+          trabajos: ordenObj.trabajos || ordenObj.trabajos_realizados || [],
+          total: Number(ordenObj.total ?? ordenObj.total_final ?? 0),
+          total_pagado: Number(ordenObj.total_pagado ?? 0),
+          saldo_pendiente: Number(ordenObj.saldo_pendiente ?? 0),
+        },
+      });
     } catch (err) {
       setErrorBusqueda(
         err.message ||
@@ -74,6 +106,40 @@ export default function PublicTracker() {
       );
     } finally {
       setBuscando(false);
+    }
+  };
+
+  const handleSendChat = async (e) => {
+    e.preventDefault();
+    if (!chatMessage.trim() || botLoading) return;
+
+    const userText = chatMessage;
+    setChatMessage("");
+    setChatHistory((prev) => [...prev, { from: "user", text: userText }]);
+    setBotLoading(true);
+
+    try {
+      const res = await apiFetch(`/public/${slug}/whatsapp-webhook`, {
+        method: "POST",
+        body: JSON.stringify({
+          telefono: "3435000000",
+          mensaje: userText,
+        }),
+      });
+      setChatHistory((prev) => [
+        ...prev,
+        { from: "bot", text: res.data.reply },
+      ]);
+    } catch {
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          from: "bot",
+          text: "No pude consultar esa patente ahora. Verificá que esté bien escrita e intentá nuevamente.",
+        },
+      ]);
+    } finally {
+      setBotLoading(false);
     }
   };
 
@@ -144,8 +210,8 @@ export default function PublicTracker() {
         "Distribución, embrague y mecánica general",
       ];
 
-  const estadoIndex = orden
-    ? ESTADOS_ORDEN.findIndex((e) => e.key === orden.estado)
+  const estadoIndex = resultado
+    ? ESTADOS_ORDEN.findIndex((e) => e.key === resultado.orden.estado)
     : -1;
 
   return (
@@ -153,7 +219,7 @@ export default function PublicTracker() {
       style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       className="min-h-screen bg-slate-50 text-slate-800 flex flex-col"
     >
-      {/* Top Bar Institucional */}
+      {/* Top Bar */}
       <header className="bg-slate-950 text-white border-b border-slate-800">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -192,7 +258,7 @@ export default function PublicTracker() {
         </div>
       </header>
 
-      {/* Hero + Buscador de Patente */}
+      {/* Hero + Buscador */}
       <section className="bg-gradient-to-b from-slate-900 to-slate-800 text-white pt-10 pb-16 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto text-center">
           <span className="inline-flex items-center gap-1.5 bg-amber-500/15 border border-amber-400/30 text-amber-300 text-xs font-bold px-3 py-1 rounded-full mb-4">
@@ -207,7 +273,6 @@ export default function PublicTracker() {
             trabajo, el detalle de repuestos y el presupuesto actualizado.
           </p>
 
-          {/* Caja de búsqueda */}
           <form
             onSubmit={handleBuscarPatente}
             className="max-w-xl mx-auto bg-white p-2 rounded-2xl shadow-xl flex flex-col sm:flex-row gap-2"
@@ -243,10 +308,9 @@ export default function PublicTracker() {
       </section>
 
       {/* Resultado de la Orden Encontrada */}
-      {orden && (
+      {resultado && (
         <section className="max-w-3xl mx-auto w-full px-4 sm:px-6 -mt-8 mb-10">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden">
-            {/* Cabecera de la ficha */}
             <div className="bg-slate-900 text-white px-6 py-5 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2.5 mb-1">
@@ -254,14 +318,14 @@ export default function PublicTracker() {
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                     className="bg-amber-500 text-slate-950 font-extrabold text-sm px-3 py-1 rounded-lg tracking-wider"
                   >
-                    {orden.patente}
+                    {resultado.vehiculo.patente}
                   </span>
                   <span className="text-xs font-semibold text-slate-400">
-                    Orden #{orden.orden_id}
+                    Orden #{resultado.orden.id}
                   </span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-extrabold text-white">
-                  {orden.marca} {orden.modelo}
+                  {resultado.vehiculo.marca} {resultado.vehiculo.modelo}
                 </h3>
               </div>
 
@@ -271,14 +335,13 @@ export default function PublicTracker() {
                 </span>
                 <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold text-xs px-3 py-1.5 rounded-lg mt-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  {orden.estado?.replace(/_/g, " ")}
+                  {resultado.orden.estado.replace(/_/g, " ")}
                 </span>
               </div>
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Línea de progreso visual */}
-              {orden.estado !== "ENTREGADO" && estadoIndex >= 0 && (
+              {resultado.orden.estado !== "ENTREGADO" && estadoIndex >= 0 && (
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">
                     Progreso de la reparación
@@ -307,70 +370,52 @@ export default function PublicTracker() {
                 </div>
               )}
 
-              {/* Trabajo / Falla */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 mb-1">
                   <FileText className="w-3.5 h-3.5 text-amber-600" />
                   Trabajo Solicitado
                 </span>
                 <p className="text-sm font-medium text-slate-800 leading-relaxed">
-                  {orden.falla_declarada}
+                  {resultado.orden.falla_declarada}
                 </p>
               </div>
 
-              {/* Repuestos e insumos si existen */}
-              {Array.isArray(orden.trabajos_realizados) &&
-                orden.trabajos_realizados.length > 0 && (
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2.5">
-                      Detalle de Repuestos e Insumos
-                    </span>
-                    <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
-                      {orden.trabajos_realizados.map((item, i) => (
-                        <div
-                          key={i}
-                          className="px-4 py-2.5 flex items-center justify-between text-xs sm:text-sm"
+              {resultado.orden.trabajos?.length > 0 && (
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2.5">
+                    Detalle de Repuestos e Insumos
+                  </span>
+                  <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+                    {resultado.orden.trabajos.map((item, i) => (
+                      <div
+                        key={i}
+                        className="px-4 py-2.5 flex items-center justify-between text-xs sm:text-sm"
+                      >
+                        <span className="font-medium text-slate-700">
+                          {item.cantidad}x {item.descripcion}
+                        </span>
+                        <span
+                          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                          className="font-bold text-slate-900"
                         >
-                          <span className="font-medium text-slate-700">
-                            {item.cantidad}x {item.descripcion}
-                          </span>
-                          <span
-                            style={{
-                              fontFamily: "'JetBrains Mono', monospace",
-                            }}
-                            className="font-bold text-slate-900"
-                          >
-                            $
-                            {Number(item.subtotal || 0).toLocaleString("es-AR")}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                          ${Number(item.subtotal || 0).toLocaleString("es-AR")}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
 
-              {/* Resumen Económico */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
                   <span className="text-[11px] font-bold uppercase text-slate-500 block">
-                    Total Presupuestado
+                    Total del Trabajo
                   </span>
                   <span
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                     className="text-lg font-extrabold text-slate-900"
                   >
-                    ${Number(orden.total_final || 0).toLocaleString("es-AR")}
-                  </span>
-                </div>
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5">
-                  <span className="text-[11px] font-bold uppercase text-emerald-700 block">
-                    Seña / Abonado
-                  </span>
-                  <span
-                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                    className="text-lg font-extrabold text-emerald-800"
-                  >
-                    ${Number(orden.total_pagado || 0).toLocaleString("es-AR")}
+                    ${resultado.orden.total.toLocaleString("es-AR")}
                   </span>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5">
@@ -381,18 +426,16 @@ export default function PublicTracker() {
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                     className="text-lg font-extrabold text-amber-950"
                   >
-                    $
-                    {Number(orden.saldo_pendiente || 0).toLocaleString("es-AR")}
+                    ${resultado.orden.saldo_pendiente.toLocaleString("es-AR")}
                   </span>
                 </div>
               </div>
 
-              {/* Botón de consulta directa sobre esta orden */}
               {waNumber && (
                 <div className="pt-2 flex justify-end">
                   <a
                     href={`https://wa.me/${waNumber}?text=${encodeURIComponent(
-                      `Hola ${taller.nombre}, te consulto por mi ${orden.marca} ${orden.modelo} (Patente ${orden.patente} - Orden #${orden.orden_id}).`,
+                      `Hola ${taller.nombre}, te consulto por mi ${resultado.vehiculo.marca} ${resultado.vehiculo.modelo} (Patente ${resultado.vehiculo.patente} - Orden #${resultado.orden.id}).`,
                     )}`}
                     target="_blank"
                     rel="noreferrer"
@@ -408,9 +451,8 @@ export default function PublicTracker() {
         </section>
       )}
 
-      {/* Información del Taller, Servicios y Preguntas Frecuentes */}
+      {/* Información del Taller y Servicios */}
       <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-10 space-y-10 flex-1">
-        {/* Tarjetas de Ubicación, Horarios y Contacto */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
             <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-3">
@@ -470,7 +512,6 @@ export default function PublicTracker() {
           </div>
         </div>
 
-        {/* Especialidades del Taller + Preguntas Frecuentes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
             <div className="flex items-center gap-2.5 mb-4">
@@ -536,6 +577,80 @@ export default function PublicTracker() {
           <span className="text-amber-500 font-bold">GestorCar</span>
         </p>
       </footer>
+
+      {/* Widget / Chatbot Flotante de WhatsApp */}
+      <div className="fixed bottom-5 right-5 z-50">
+        {chatOpen ? (
+          <div className="bg-white border-2 border-slate-300 rounded-2xl shadow-2xl w-80 sm:w-96 flex flex-col overflow-hidden mb-2">
+            <div className="bg-emerald-700 p-3.5 text-white flex justify-between items-center">
+              <div>
+                <h4 className="font-extrabold text-sm leading-tight">
+                  Asistente Virtual del Taller
+                </h4>
+                <span className="text-[11px] text-emerald-100 flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                  En línea las 24 hs
+                </span>
+              </div>
+              <button
+                onClick={() => setChatOpen(false)}
+                className="text-white/80 hover:text-white text-sm font-bold px-2 py-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 h-60 overflow-y-auto space-y-2.5 bg-slate-100 text-xs font-medium">
+              {chatHistory.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`p-3 rounded-xl max-w-[85%] leading-relaxed whitespace-pre-line ${
+                    msg.from === "bot"
+                      ? "bg-white border border-slate-200 text-slate-800 mr-auto"
+                      : "bg-emerald-700 text-white ml-auto"
+                  }`}
+                >
+                  {msg.text}
+                </div>
+              ))}
+              {botLoading && (
+                <div className="bg-white border border-slate-200 text-slate-500 p-2.5 rounded-xl text-xs w-28">
+                  Consultando...
+                </div>
+              )}
+            </div>
+
+            <form
+              onSubmit={handleSendChat}
+              className="p-2 border-t border-slate-200 bg-white flex gap-2"
+            >
+              <input
+                type="text"
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                placeholder="Escribí tu patente..."
+                className="flex-1 bg-slate-100 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-emerald-600"
+              />
+              <button
+                type="submit"
+                disabled={botLoading}
+                className="bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold"
+              >
+                Enviar
+              </button>
+            </form>
+          </div>
+        ) : (
+          <button
+            onClick={() => setChatOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-3.5 rounded-full shadow-lg flex items-center gap-2 transition-transform hover:scale-105 cursor-pointer"
+            title="Consultar por Asistente Virtual"
+          >
+            <MessageSquare className="w-5 h-5 fill-current" />
+            <span className="text-xs">Consultar Estado</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
