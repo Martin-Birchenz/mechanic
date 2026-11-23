@@ -1,4 +1,25 @@
+const { Router } = require("express");
 const pool = require("../config/db");
+const portalRepository = require("../repositories/portal.repository");
+
+const router = Router();
+
+// Obtener información institucional del taller por slug
+router.get("/:slug", async (req, res, next) => {
+  try {
+    const taller = await portalRepository.findTallerBySlug(req.params.slug);
+    if (!taller) {
+      const err = new Error(
+        "Taller no encontrado o portal público deshabilitado",
+      );
+      err.statusCode = 404;
+      return next(err);
+    }
+    return res.status(200).json({ status: "success", data: taller });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Historial público compartible por patente (solo lectura)
 router.get("/:slug/historial/:patente", async (req, res, next) => {
@@ -63,3 +84,5 @@ router.get("/:slug/historial/:patente", async (req, res, next) => {
     next(error);
   }
 });
+
+module.exports = router;
