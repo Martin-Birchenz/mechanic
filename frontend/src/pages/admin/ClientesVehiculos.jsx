@@ -17,7 +17,30 @@ import {
   CheckCircle2,
   MessageCircle,
   Users,
+  Link2,
+  Printer,
 } from "lucide-react";
+
+function limpiarKilometros(valor) {
+  if (typeof valor === "number") {
+    return Number.isFinite(valor) ? Math.max(0, Math.round(valor)) : 0;
+  }
+  if (!valor) return 0;
+  const sinFormato = String(valor)
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[.,]/g, "");
+  const num = parseInt(sinFormato, 10);
+  return Number.isNaN(num) ? 0 : Math.max(0, num);
+}
+
+function mensajeClaro(err, fallback) {
+  const msg = String(err?.message || "");
+  if (msg.includes("expected int") || msg.includes("Invalid input")) {
+    return "Revisá los números ingresados (kilometraje, año o montos) y completá los campos obligatorios.";
+  }
+  return msg || fallback;
+}
 
 export default function ClientesVehiculos() {
   const [searchParams] = useSearchParams();
@@ -29,8 +52,8 @@ export default function ClientesVehiculos() {
   const [ficha, setFicha] = useState(null);
   const [loadingFicha, setLoadingFicha] = useState(false);
   const [error, setError] = useState(null);
+  const [copiadoOk, setCopiadoOk] = useState(false);
 
-  // Modal nuevo cliente + vehículo
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     nombre_completo: "",
@@ -40,7 +63,7 @@ export default function ClientesVehiculos() {
     marca: "",
     modelo: "",
     anio: new Date().getFullYear(),
-    kilometraje: 0,
+    kilometraje: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState(null);
@@ -58,17 +81,21 @@ export default function ClientesVehiculos() {
   };
 
   const buscarFicha = async (patenteTarget) => {
-    const pat = (patenteTarget || patenteInput).trim().toUpperCase();
+    const pat = String(patenteTarget || patenteInput)
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "");
     if (!pat) return;
 
     try {
       setLoadingFicha(true);
       setError(null);
+      setCopiadoOk(false);
       const res = await apiFetch(`/clientes-vehiculos/patente/${pat}`);
       setFicha(res.data);
       setPatenteInput(pat);
     } catch (err) {
-      setError(err.message || "No se encontró el vehículo solicitado");
+      setError(mensajeClaro(err, "No se encontró el vehículo solicitado."));
       setFicha(null);
     } finally {
       setLoadingFicha(false);
@@ -101,20 +128,42 @@ export default function ClientesVehiculos() {
     }
   };
 
+  const handleCopiarLinkHistorial = async () => {
+    if (!ficha?.vehiculo?.patente) return;
+    try {
+      const res = await apiFetch("/gestion/mi-taller");
+      const slugTaller = res.data?.slug || "taller";
+      const link = `${window.location.origin}/p/${slugTaller}/historial/${ficha.vehiculo.patente}`;
+      await navigator.clipboard.writeText(link);
+      setCopiadoOk(true);
+      setTimeout(() => setCopiadoOk(false), 3000);
+    } catch {
+      setError("No se pudo copiar el enlace al portapapeles.");
+    }
+  };
+
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setModalError(null);
 
     try {
-      const nuevaPatente = formData.patente.trim().toUpperCase();
+      const nuevaPatente = formData.patente
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, "");
+
       await apiFetch("/clientes-vehiculos", {
         method: "POST",
         body: JSON.stringify({
-          ...formData,
+          nombre_completo: formData.nombre_completo.trim(),
+          telefono: formData.telefono.trim(),
+          email: formData.email.trim() || undefined,
           patente: nuevaPatente,
-          anio: Number(formData.anio) || undefined,
-          kilometraje: Number(formData.kilometraje) || 0,
+          marca: formData.marca.trim(),
+          modelo: formData.modelo.trim(),
+          anio: limpiarKilometros(formData.anio) || undefined,
+          kilometraje: limpiarKilometros(formData.kilometraje),
         }),
       });
 
@@ -130,10 +179,15 @@ export default function ClientesVehiculos() {
         marca: "",
         modelo: "",
         anio: new Date().getFullYear(),
-        kilometraje: 0,
+        kilometraje: "",
       });
     } catch (err) {
-      setModalError(err.message || "Error al registrar cliente y vehículo");
+      setModalError(
+        mensajeClaro(
+          err,
+          "Revisá los datos ingresados para registrar el vehículo.",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -156,15 +210,18 @@ export default function ClientesVehiculos() {
           </div>
 
           <button
-            onClick={() => setModalOpen(true)}
-            className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm px-5 py-3 rounded-xl transition flex items-center gap-2 self-start sm:self-auto shadow-md"
+            onClick={() => {
+              setModalError(null);
+              setModalOpen(true);
+            }}
+            className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm px-5 py-3 rounded-xl transition flex items-center gap-2 self-start sm:self-auto shadow-md cursor-pointer"
           >
             <Plus className="w-5 h-5" />
             Ingresar Auto
           </button>
         </div>
 
-        {/* Buscador y Filtro */}
+        {/* Buscador */}
         <div className="bg-white border-2 border-stone-300 rounded-2xl p-5 mb-6 shadow-sm">
           <form
             onSubmit={handleSearchSubmit}
@@ -181,7 +238,7 @@ export default function ClientesVehiculos() {
                     setError(null);
                   }
                 }}
-                placeholder="Filtrar por cliente o escribí la patente exacta (ej: AA123BB)..."
+                placeholder="Filtrar por cliente o escribí la patente (ej: AA123BB)..."
                 className="w-full bg-stone-100 border-2 border-stone-300 rounded-xl px-4 py-3 pl-12 text-base font-bold text-stone-900 focus:outline-none focus:border-amber-600"
               />
               <Search className="w-5 h-5 text-stone-500 absolute left-4 top-3.5" />
@@ -189,7 +246,7 @@ export default function ClientesVehiculos() {
             <button
               type="submit"
               disabled={loadingFicha}
-              className="bg-stone-900 hover:bg-stone-800 text-white font-extrabold px-7 py-3 rounded-xl transition text-sm"
+              className="bg-stone-900 hover:bg-stone-800 text-white font-extrabold px-7 py-3 rounded-xl transition text-sm cursor-pointer"
             >
               {loadingFicha ? "Buscando..." : "ABRIR FICHA"}
             </button>
@@ -201,9 +258,16 @@ export default function ClientesVehiculos() {
               <span>{error}</span>
             </div>
           )}
+
+          {copiadoOk && (
+            <div className="mt-4 bg-emerald-100 border-l-4 border-emerald-600 text-emerald-900 p-3.5 rounded-r-xl flex items-center gap-2 text-sm font-bold">
+              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <span>Enlace público del historial copiado al portapapeles.</span>
+            </div>
+          )}
         </div>
 
-        {/* Lista General de Clientes y Autos del Taller */}
+        {/* Lista de todos los clientes y vehículos */}
         <div className="bg-white border-2 border-stone-300 rounded-2xl p-6 mb-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-extrabold text-stone-900 flex items-center gap-2">
@@ -217,7 +281,7 @@ export default function ClientesVehiculos() {
                   setPatenteInput("");
                   setError(null);
                 }}
-                className="text-xs font-extrabold text-amber-700 hover:underline"
+                className="text-xs font-extrabold text-amber-700 hover:underline cursor-pointer"
               >
                 Limpiar selección
               </button>
@@ -241,7 +305,7 @@ export default function ClientesVehiculos() {
                     key={v.id}
                     type="button"
                     onClick={() => buscarFicha(v.patente)}
-                    className={`text-left p-4 rounded-xl border-2 transition flex items-center justify-between gap-3 ${
+                    className={`text-left p-4 rounded-xl border-2 transition flex items-center justify-between gap-3 cursor-pointer ${
                       seleccionado
                         ? "bg-amber-50 border-amber-500 shadow-sm"
                         : "bg-stone-50 border-stone-200 hover:border-stone-400"
@@ -270,8 +334,8 @@ export default function ClientesVehiculos() {
           )}
         </div>
 
-        {/* Detalle de Ficha Clínica cuando selecciona uno */}
-        {ficha && (
+        {/* Ficha del vehículo seleccionado */}
+        {ficha && ficha.vehiculo && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div className="md:col-span-2 bg-white border-2 border-stone-300 rounded-2xl p-6 shadow-sm">
@@ -304,7 +368,7 @@ export default function ClientesVehiculos() {
                       <Gauge className="w-3.5 h-3.5" /> Kilometraje
                     </span>
                     <span className="text-base font-extrabold text-emerald-700 mt-1 block font-mono">
-                      {Number(ficha.vehiculo.kilometraje).toLocaleString(
+                      {Number(ficha.vehiculo.kilometraje || 0).toLocaleString(
                         "es-AR",
                       )}{" "}
                       km
@@ -316,9 +380,29 @@ export default function ClientesVehiculos() {
                       <History className="w-3.5 h-3.5" /> Visitas
                     </span>
                     <span className="text-base font-extrabold text-stone-900 mt-1 block">
-                      {ficha.historial.length} ingresos
+                      {(ficha.historial || []).length} ingresos
                     </span>
                   </div>
+                </div>
+
+                {/* Acciones de historial en la ficha existente */}
+                <div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Imprimir / PDF Historial
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopiarLinkHistorial}
+                    className="bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 font-extrabold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Link2 className="w-4 h-4" />
+                    Copiar Link Público de Historial
+                  </button>
                 </div>
               </div>
 
@@ -376,7 +460,7 @@ export default function ClientesVehiculos() {
                 Trabajos y Repuestos Anteriores
               </h3>
 
-              {ficha.historial.length === 0 ? (
+              {(ficha.historial || []).length === 0 ? (
                 <p className="text-sm text-stone-500 py-8 text-center font-medium">
                   Este vehículo todavía no tiene trabajos anteriores
                   registrados.
@@ -400,7 +484,7 @@ export default function ClientesVehiculos() {
                           </span>
                           <span className="text-xs font-mono font-bold text-stone-500">
                             •{" "}
-                            {Number(ot.kilometraje_ingreso).toLocaleString(
+                            {Number(ot.kilometraje_ingreso || 0).toLocaleString(
                               "es-AR",
                             )}{" "}
                             km
@@ -411,7 +495,10 @@ export default function ClientesVehiculos() {
                             {ot.estado}
                           </span>
                           <span className="text-sm font-mono font-extrabold text-stone-900">
-                            ${Number(ot.total_final).toLocaleString("es-AR")}
+                            $
+                            {Number(ot.total_final || 0).toLocaleString(
+                              "es-AR",
+                            )}
                           </span>
                         </div>
                       </div>
@@ -429,7 +516,9 @@ export default function ClientesVehiculos() {
                               className="bg-white border border-stone-300 text-stone-800 px-2.5 py-1 rounded-lg text-xs font-bold"
                             >
                               {rep.descripcion} (x{rep.cantidad}) — $
-                              {Number(rep.subtotal).toLocaleString("es-AR")}
+                              {Number(rep.subtotal || 0).toLocaleString(
+                                "es-AR",
+                              )}
                             </span>
                           ))}
                         </div>
@@ -449,7 +538,7 @@ export default function ClientesVehiculos() {
           <div className="bg-white border-2 border-stone-300 rounded-2xl max-w-lg w-full p-6 my-8 text-stone-900 shadow-2xl relative">
             <button
               onClick={() => setModalOpen(false)}
-              className="absolute right-4 top-4 text-stone-500 hover:text-stone-900"
+              className="absolute right-4 top-4 text-stone-500 hover:text-stone-900 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -476,7 +565,7 @@ export default function ClientesVehiculos() {
                 <input
                   type="text"
                   required
-                  placeholder="Ej: Marcelo Fernández"
+                  placeholder="Ej: Matías Pereyra"
                   value={formData.nombre_completo}
                   onChange={(e) =>
                     setFormData({
@@ -496,7 +585,7 @@ export default function ClientesVehiculos() {
                   <input
                     type="text"
                     required
-                    placeholder="Ej: 3435123456"
+                    placeholder="Ej: 3435482910"
                     value={formData.telefono}
                     onChange={(e) =>
                       setFormData({ ...formData, telefono: e.target.value })
@@ -520,32 +609,6 @@ export default function ClientesVehiculos() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-stone-200">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5"
-                >
-                  Imprimir / PDF Historial Completo
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const res = await apiFetch("/gestion/mi-taller");
-                    const slugTaller = res.data?.slug || "taller";
-                    const link = `${window.location.origin}/p/${slugTaller}/historial/${ficha.vehiculo.patente}`;
-                    navigator.clipboard.writeText(link);
-                    alert(
-                      "Enlace público del historial copiado al portapapeles:\n" +
-                        link,
-                    );
-                  }}
-                  className="bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 font-extrabold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5"
-                >
-                  Copiar Link Público de Historial
-                </button>
-              </div>
-
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block font-bold text-stone-700 mb-1">
@@ -554,8 +617,8 @@ export default function ClientesVehiculos() {
                   <input
                     type="text"
                     required
-                    placeholder="AA123BB"
-                    maxLength={8}
+                    placeholder="AB318CD"
+                    maxLength={10}
                     value={formData.patente}
                     onChange={(e) =>
                       setFormData({
@@ -573,7 +636,7 @@ export default function ClientesVehiculos() {
                   <input
                     type="text"
                     required
-                    placeholder="Ford"
+                    placeholder="Volkswagen"
                     value={formData.marca}
                     onChange={(e) =>
                       setFormData({ ...formData, marca: e.target.value })
@@ -588,7 +651,7 @@ export default function ClientesVehiculos() {
                   <input
                     type="text"
                     required
-                    placeholder="Ranger"
+                    placeholder="Gol Trend"
                     value={formData.modelo}
                     onChange={(e) =>
                       setFormData({ ...formData, modelo: e.target.value })
@@ -604,7 +667,8 @@ export default function ClientesVehiculos() {
                     Año
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    placeholder="2017"
                     value={formData.anio}
                     onChange={(e) =>
                       setFormData({ ...formData, anio: e.target.value })
@@ -617,7 +681,8 @@ export default function ClientesVehiculos() {
                     Kilometraje Actual
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    placeholder="Ej: 96.400 o 96,400"
                     value={formData.kilometraje}
                     onChange={(e) =>
                       setFormData({ ...formData, kilometraje: e.target.value })
@@ -631,14 +696,14 @@ export default function ClientesVehiculos() {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-stone-300 font-bold text-stone-700"
+                  className="px-4 py-2 rounded-xl border border-stone-300 font-bold text-stone-700 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm px-5 py-2.5 rounded-xl flex items-center gap-1.5"
+                  className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-sm px-5 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   {submitting ? "Guardando..." : "Guardar Ficha"}

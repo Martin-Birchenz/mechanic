@@ -65,4 +65,8 @@ router.get("/vehiculos-lista", async (req, res, next) => {
   }
 });
 
+router.get("/pagos", (req, res, next) =>
+  gestionController.listarPagosPorFecha(req, res, next),
+);
+
 module.exports = router;

@@ -321,6 +321,36 @@ class GestionController {
       next(error);
     }
   }
+
+  // En GestionController (backend/src/controllers/gestion.controller.js)
+  async listarPagosPorFecha(req, res, next) {
+    try {
+      const fecha = req.query.fecha || new Date().toISOString().split("T")[0];
+      const [rows] = await pool.query(
+        `SELECT 
+          p.id,
+          p.orden_id,
+          p.monto,
+          p.metodo_pago,
+          p.notas,
+          p.created_at,
+          v.patente,
+          c.nombre_completo AS cliente_nombre
+         FROM pagos p
+         INNER JOIN ordenes_trabajo o ON p.orden_id = o.id
+         INNER JOIN vehiculos v ON o.vehiculo_id = v.id
+         INNER JOIN clientes c ON v.cliente_id = c.id
+         WHERE o.taller_id = ?
+           AND p.deleted_at IS NULL
+           AND DATE(p.created_at) = ?
+         ORDER BY p.created_at DESC`,
+        [req.tallerId, fecha],
+      );
+      return res.status(200).json({ status: "success", data: rows });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new GestionController();

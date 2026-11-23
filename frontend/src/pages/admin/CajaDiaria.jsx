@@ -15,6 +15,14 @@ import {
   BarChart3,
 } from "lucide-react";
 
+function limpiarNumero(valor) {
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+  if (!valor) return 0;
+  const limpio = String(valor).trim().replace(/\s+/g, "").replace(",", ".");
+  const n = parseFloat(limpio);
+  return Number.isNaN(n) ? 0 : n;
+}
+
 export default function CajaDiaria() {
   const hoy = new Date().toISOString().split("T")[0];
   const [fecha, setFecha] = useState(hoy);
@@ -24,7 +32,6 @@ export default function CajaDiaria() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // Modal registrar gasto
   const [modalGastoOpen, setModalGastoOpen] = useState(false);
   const [savingGasto, setSavingGasto] = useState(false);
   const [gastoForm, setGastoForm] = useState({
@@ -41,7 +48,7 @@ export default function CajaDiaria() {
       const mesActual = fecha.slice(0, 7);
 
       const [resIngresos, resEgresos, resMetricas] = await Promise.all([
-        apiFetch(`/pagos?fecha=${fecha}`).catch(() => ({ data: [] })),
+        apiFetch(`/gestion/pagos?fecha=${fecha}`),
         apiFetch(`/gestion/egresos?fecha=${fecha}`),
         apiFetch(`/gestion/metricas?mes=${mesActual}`),
       ]);
@@ -50,7 +57,11 @@ export default function CajaDiaria() {
       setEgresos(resEgresos.data || []);
       setMetricasMes(resMetricas.data || null);
     } catch (err) {
-      setErrorMsg(err.message || "Error al cargar la caja diaria");
+      setErrorMsg(
+        err.message?.includes("Invalid input")
+          ? "Revisá los valores ingresados en la caja."
+          : err.message || "No se pudo cargar la caja diaria.",
+      );
     } finally {
       setLoading(false);
     }
@@ -62,6 +73,12 @@ export default function CajaDiaria() {
 
   const handleCrearGasto = async (e) => {
     e.preventDefault();
+    const montoNum = limpiarNumero(gastoForm.monto);
+    if (!gastoForm.concepto.trim() || montoNum <= 0) {
+      setErrorMsg("Ingresá un concepto y un monto mayor a cero.");
+      return;
+    }
+
     try {
       setSavingGasto(true);
       setErrorMsg(null);
@@ -69,7 +86,8 @@ export default function CajaDiaria() {
         method: "POST",
         body: JSON.stringify({
           ...gastoForm,
-          monto: Number(gastoForm.monto),
+          concepto: gastoForm.concepto.trim(),
+          monto: montoNum,
           fecha: `${fecha} 12:00:00`,
         }),
       });
@@ -82,7 +100,11 @@ export default function CajaDiaria() {
       });
       cargarCaja();
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(
+        err.message?.includes("Invalid input")
+          ? "Ingresá un monto válido mayor a cero."
+          : err.message || "No se pudo guardar el gasto.",
+      );
     } finally {
       setSavingGasto(false);
     }
@@ -94,7 +116,7 @@ export default function CajaDiaria() {
       await apiFetch(`/gestion/egresos/${id}`, { method: "DELETE" });
       cargarCaja();
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.message || "No se pudo eliminar el gasto.");
     }
   };
 
@@ -128,15 +150,14 @@ export default function CajaDiaria() {
           </div>
         )}
 
-        {/* CABECERA Y FILTRO DE FECHA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">
               Caja Diaria y Balance del Taller
             </h2>
             <p className="text-sm text-stone-600">
-              Control de cobros de órdenes, gastos de caja chica y rentabilidad
-              mensual.
+              Control de señas, cobros de órdenes, gastos de caja chica y
+              rentabilidad mensual.
             </p>
           </div>
 
@@ -161,7 +182,6 @@ export default function CajaDiaria() {
           </div>
         </div>
 
-        {/* KPIS DEL DÍA SELECCIONADO */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white border-2 border-stone-300 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between text-emerald-700 mb-1">
@@ -174,7 +194,7 @@ export default function CajaDiaria() {
               ${totalIngresosDia.toLocaleString("es-AR")}
             </p>
             <p className="text-xs text-stone-500 mt-1">
-              {ingresos.length} cobro(s) registrado(s)
+              {ingresos.length} cobro(s) / seña(s)
             </p>
           </div>
 
@@ -226,7 +246,6 @@ export default function CajaDiaria() {
           </div>
         </div>
 
-        {/* RESUMEN MENSUAL ACUMULADO */}
         {metricasMes && (
           <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm uppercase mb-3">
@@ -236,16 +255,22 @@ export default function CajaDiaria() {
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
               <div>
                 <span className="text-xs text-stone-600 block">
-                  Facturado Mes
+                  Facturado / Cobrado Mes
                 </span>
                 <strong className="text-base font-mono font-black text-emerald-800">
-                  ${Number(metricasMes.total_ingresos).toLocaleString("es-AR")}
+                  $
+                  {Number(metricasMes.total_ingresos || 0).toLocaleString(
+                    "es-AR",
+                  )}
                 </strong>
               </div>
               <div>
                 <span className="text-xs text-stone-600 block">Gastos Mes</span>
                 <strong className="text-base font-mono font-black text-red-700">
-                  -${Number(metricasMes.total_egresos).toLocaleString("es-AR")}
+                  -$
+                  {Number(metricasMes.total_egresos || 0).toLocaleString(
+                    "es-AR",
+                  )}
                 </strong>
               </div>
               <div>
@@ -253,7 +278,10 @@ export default function CajaDiaria() {
                   Ganancia Neta Mes
                 </span>
                 <strong className="text-base font-mono font-black text-stone-900">
-                  ${Number(metricasMes.balance_neto).toLocaleString("es-AR")}
+                  $
+                  {Number(metricasMes.balance_neto || 0).toLocaleString(
+                    "es-AR",
+                  )}
                 </strong>
               </div>
               <div>
@@ -261,7 +289,7 @@ export default function CajaDiaria() {
                   Autos Atendidos
                 </span>
                 <strong className="text-base font-mono font-black text-stone-900">
-                  {metricasMes.cant_ordenes}
+                  {metricasMes.cant_ordenes || 0}
                 </strong>
               </div>
               <div>
@@ -269,20 +297,21 @@ export default function CajaDiaria() {
                   Ticket Promedio
                 </span>
                 <strong className="text-base font-mono font-black text-stone-900">
-                  ${Number(metricasMes.ticket_promedio).toLocaleString("es-AR")}
+                  $
+                  {Number(metricasMes.ticket_promedio || 0).toLocaleString(
+                    "es-AR",
+                  )}
                 </strong>
               </div>
             </div>
           </div>
         )}
 
-        {/* TABLAS DE MOVIMIENTOS DEL DÍA */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* INGRESOS */}
           <div className="bg-white border-2 border-stone-300 rounded-2xl overflow-hidden shadow-sm">
             <div className="bg-emerald-50 border-b-2 border-stone-300 px-5 py-3.5 flex justify-between items-center">
               <h3 className="font-extrabold text-emerald-950 text-sm uppercase">
-                Ingresos / Cobros de Órdenes
+                Ingresos / Señas y Cobros del Día
               </h3>
               <span className="font-mono font-black text-sm text-emerald-800">
                 ${totalIngresosDia.toLocaleString("es-AR")}
@@ -295,7 +324,7 @@ export default function CajaDiaria() {
               </div>
             ) : ingresos.length === 0 ? (
               <div className="p-8 text-center text-sm text-stone-500">
-                No se registraron cobros en esta fecha.
+                No se registraron cobros o señas en esta fecha.
               </div>
             ) : (
               <div className="divide-y divide-stone-200">
@@ -317,7 +346,7 @@ export default function CajaDiaria() {
                       </p>
                     </div>
                     <span className="font-mono font-black text-emerald-700">
-                      +${Number(pago.monto).toLocaleString("es-AR")}
+                      +${Number(pago.monto || 0).toLocaleString("es-AR")}
                     </span>
                   </div>
                 ))}
@@ -325,7 +354,6 @@ export default function CajaDiaria() {
             )}
           </div>
 
-          {/* EGRESOS */}
           <div className="bg-white border-2 border-stone-300 rounded-2xl overflow-hidden shadow-sm">
             <div className="bg-red-50 border-b-2 border-stone-300 px-5 py-3.5 flex justify-between items-center">
               <h3 className="font-extrabold text-red-950 text-sm uppercase">
@@ -366,7 +394,7 @@ export default function CajaDiaria() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-mono font-black text-red-600">
-                        -${Number(gasto.monto).toLocaleString("es-AR")}
+                        -${Number(gasto.monto || 0).toLocaleString("es-AR")}
                       </span>
                       <button
                         onClick={() => handleEliminarGasto(gasto.id)}
@@ -384,7 +412,6 @@ export default function CajaDiaria() {
         </div>
       </main>
 
-      {/* MODAL REGISTRAR GASTO */}
       {modalGastoOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white border-2 border-stone-300 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
@@ -405,7 +432,7 @@ export default function CajaDiaria() {
                 <input
                   type="text"
                   required
-                  placeholder="Ej: Compra de precintos, limpiacontactos y estopa"
+                  placeholder="Ej: Compra de desengrasante y trapos"
                   value={gastoForm.concepto}
                   onChange={(e) =>
                     setGastoForm({ ...gastoForm, concepto: e.target.value })
@@ -461,11 +488,9 @@ export default function CajaDiaria() {
                   Monto ($) *
                 </label>
                 <input
-                  type="number"
-                  min="1"
-                  step="0.01"
+                  type="text"
                   required
-                  placeholder="0.00"
+                  placeholder="Ej: 16800 o 16.800"
                   value={gastoForm.monto}
                   onChange={(e) =>
                     setGastoForm({ ...gastoForm, monto: e.target.value })

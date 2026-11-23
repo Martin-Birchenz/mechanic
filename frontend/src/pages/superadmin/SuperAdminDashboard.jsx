@@ -157,16 +157,12 @@ export default function SuperAdminDashboard() {
             <h2 className="text-2xl font-extrabold text-stone-900">
               Talleres Clientes ({talleres.length})
             </h2>
-            <p className="text-sm text-stone-600">
-              Creá cuentas nuevas, entrá a gestionar sus órdenes o pausá
-              suscripciones.
-            </p>
           </div>
           <button
             onClick={() => setShowModal(true)}
             className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold px-5 py-3 rounded-xl shadow flex items-center gap-2 text-sm transition"
           >
-            <Plus className="w-5 h-5" />+ NUEVO TALLER
+            <Plus className="w-5 h-5" /> NUEVO TALLER
           </button>
         </div>
 
