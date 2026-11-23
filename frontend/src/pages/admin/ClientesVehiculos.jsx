@@ -520,6 +520,32 @@ export default function ClientesVehiculos() {
                 </div>
               </div>
 
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5"
+                >
+                  Imprimir / PDF Historial Completo
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await apiFetch("/gestion/mi-taller");
+                    const slugTaller = res.data?.slug || "taller";
+                    const link = `${window.location.origin}/p/${slugTaller}/historial/${ficha.vehiculo.patente}`;
+                    navigator.clipboard.writeText(link);
+                    alert(
+                      "Enlace público del historial copiado al portapapeles:\n" +
+                        link,
+                    );
+                  }}
+                  className="bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 font-extrabold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5"
+                >
+                  Copiar Link Público de Historial
+                </button>
+              </div>
+
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block font-bold text-stone-700 mb-1">

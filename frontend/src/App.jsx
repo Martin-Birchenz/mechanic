@@ -10,6 +10,8 @@ import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import StockRepuestos from "./pages/admin/StockRepuestos";
 import RecordatoriosService from "./pages/admin/RecordatoriosService";
 import MiTallerConfig from "./pages/admin/MiTallerConfig";
+import PublicHistorial from "./pages/public/PublicHistorial";
+import Presupuestos from "./pages/admin/Presupuestos";
 
 function RequireSuperAdmin({ children }) {
   const { user, isAuthenticated, loading } = useAuth();
@@ -30,6 +32,11 @@ export default function App() {
 
           {/* Login unificado */}
           <Route path="/login" element={<Login />} />
+
+          <Route
+            path="/p/:slug/historial/:patente"
+            element={<PublicHistorial />}
+          />
 
           {/* Consola SuperAdmin (GestorCar) */}
           <Route
@@ -56,6 +63,7 @@ export default function App() {
               path="/admin/tablero"
               element={<Navigate replace to="/admin/ordenes" />}
             />
+            <Route path="/admin/presupuestos" element={<Presupuestos />} />
           </Route>
 
           {/* Redirección por defecto */}

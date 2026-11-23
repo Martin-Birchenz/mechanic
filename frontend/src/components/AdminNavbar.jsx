@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   Menu,
   X,
+  FileText,
 } from "lucide-react";
 
 export default function AdminNavbar() {
@@ -37,6 +38,7 @@ export default function AdminNavbar() {
       icon: CalendarClock,
     },
     { to: "/admin/mi-taller", label: "Mi Taller", icon: Settings },
+    { to: "/admin/presupuestos", label: "Presupuestos", icon: FileText },
   ];
 
   const desktopLinkClass = ({ isActive }) =>

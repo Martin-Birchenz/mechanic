@@ -69,14 +69,23 @@ export default function OrdenesTrabajo() {
         body: JSON.stringify({ estado: nuevoEstado }),
       });
 
+      const ordenActualizada = ordenes.find((o) => o.id === ordenId);
+
       setOrdenes((prev) =>
         prev.map((o) => (o.id === ordenId ? { ...o, estado: nuevoEstado } : o)),
       );
 
-      setNotif(
-        `Orden #${ordenId} actualizada a "${nuevoEstado.replace(/_/g, " ")}"`,
-      );
-      setTimeout(() => setNotif(null), 3500);
+      if (nuevoEstado === "LISTO" && ordenActualizada) {
+        setNotif(
+          `¡Vehículo listo! Abriendo WhatsApp para avisar a ${ordenActualizada.cliente_nombre}...`,
+        );
+        abrirWhatsAppCliente({ ...ordenActualizada, estado: "LISTO" });
+      } else {
+        setNotif(
+          `Orden #${ordenId} actualizada a "${nuevoEstado.replace(/_/g, " ")}"`,
+        );
+      }
+      setTimeout(() => setNotif(null), 4000);
     } catch (err) {
       setErrorMsg("No se pudo actualizar el estado: " + err.message);
     }

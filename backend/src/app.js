@@ -9,6 +9,7 @@ const cajaRoutes = require("./routes/caja.routes");
 const portalRoutes = require("./routes/portal.routes");
 const superAdminRoutes = require("./routes/superadmin.routes");
 const gestionRoutes = require("./routes/gestion.routes");
+const presupuestoRoutes = require("./routes/presupuesto.routes");
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use("/api/caja", cajaRoutes);
 app.use("/api/public", portalRoutes);
 app.use("/api/superadmin", superAdminRoutes);
 app.use("/api/gestion", gestionRoutes);
+app.use("/api/presupuestos", presupuestoRoutes);
 
 // Manejador central de errores
 app.use(errorHandler);
