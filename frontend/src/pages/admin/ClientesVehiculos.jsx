@@ -193,6 +193,187 @@ export default function ClientesVehiculos() {
     }
   };
 
+  const imprimirHistorialPDF = () => {
+    if (!ficha?.vehiculo) return;
+
+    const { vehiculo, historial = [] } = ficha;
+    const win = window.open("", "_blank", "width=850,height=950");
+    if (!win) return;
+
+    const fechaEmision = new Date().toLocaleDateString("es-AR");
+
+    const tarjetasHistorial =
+      historial.length === 0
+        ? `<p style="color:#555; font-size:14px; padding:16px 0;">Este vehículo todavía no tiene trabajos anteriores registrados.</p>`
+        : historial
+            .map((ot) => {
+              const repuestosHtml =
+                Array.isArray(ot.repuestos) && ot.repuestos.length > 0
+                  ? `<div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;">
+                    ${ot.repuestos
+                      .map(
+                        (rep) => `
+                        <span style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:4px 8px; font-size:12px; color:#1e293b;">
+                          ${rep.descripcion} (x${rep.cantidad}) — <strong>$${Number(rep.subtotal || 0).toLocaleString("es-AR")}</strong>
+                        </span>`,
+                      )
+                      .join("")}
+                  </div>`
+                  : "";
+
+              return `
+              <div class="ot-card">
+                <div class="ot-header">
+                  <div>
+                    <strong>O.T. #${ot.ot_id}</strong>
+                    <span style="color:#475569; margin-left:8px;">${new Date(ot.fecha_ingreso).toLocaleDateString("es-AR")}</span>
+                    <span style="color:#475569; margin-left:8px;">• ${Number(ot.kilometraje_ingreso || 0).toLocaleString("es-AR")} km</span>
+                  </div>
+                  <div>
+                    <span class="badge">${String(ot.estado || "").replace(/_/g, " ")}</span>
+                    <strong style="margin-left:10px; font-size:15px;">$${Number(ot.total_final || 0).toLocaleString("es-AR")}</strong>
+                  </div>
+                </div>
+                <p style="margin:8px 0 0; font-size:14px; color:#0f172a;">
+                  <strong>Trabajo realizado:</strong> ${ot.falla_declarada || "-"}
+                </p>
+                ${repuestosHtml}
+              </div>
+            `;
+            })
+            .join("");
+
+    win.document.write(`
+    <!DOCTYPE html>
+    <html lang="es">
+      <head>
+        <meta charset="utf-8" />
+        <title>Historial ${vehiculo.patente} - GestorCar</title>
+        <style>
+          @page { size: A4; margin: 16mm; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #0f172a;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 3px solid #0f172a;
+            padding-bottom: 14px;
+            margin-bottom: 20px;
+          }
+          .title { margin: 0; font-size: 22px; font-weight: 800; }
+          .subtitle { margin: 4px 0 0; font-size: 12px; color: #475569; }
+          .patente-box {
+            background: #0f172a;
+            color: #fff;
+            font-family: monospace;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            padding: 6px 14px;
+            border-radius: 6px;
+            text-align: center;
+          }
+          .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 22px;
+          }
+          .box {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 12px 14px;
+            background: #f8fafc;
+          }
+          .box-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 6px;
+          }
+          .section-title {
+            font-size: 16px;
+            font-weight: 800;
+            margin: 0 0 12px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 6px;
+          }
+          .ot-card {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          .ot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+            font-size: 13px;
+          }
+          .badge {
+            background: #e2e8f0;
+            color: #1e293b;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1 class="title">Historial de Mantenimiento del Vehículo</h1>
+            <p class="subtitle">Emitido el ${fechaEmision} · GestorCar</p>
+          </div>
+          <div>
+            <div class="patente-box">${vehiculo.patente}</div>
+          </div>
+        </div>
+
+        <div class="meta-grid">
+          <div class="box">
+            <div class="box-title">Vehículo</div>
+            <div style="font-size:16px; font-weight:800;">${vehiculo.marca} ${vehiculo.modelo}</div>
+            <div style="font-size:13px; color:#334155; margin-top:4px;">
+              Año: <strong>${vehiculo.anio || "-"}</strong> · Km: <strong>${Number(vehiculo.kilometraje || 0).toLocaleString("es-AR")} km</strong> · Visitas: <strong>${historial.length}</strong>
+            </div>
+          </div>
+          <div class="box">
+            <div class="box-title">Cliente</div>
+            <div style="font-size:16px; font-weight:800;">${vehiculo.cliente_nombre || "-"}</div>
+            <div style="font-size:13px; color:#334155; margin-top:4px;">
+              Tel: <strong>${vehiculo.cliente_telefono || "-"}</strong>${vehiculo.cliente_email ? ` · ${vehiculo.cliente_email}` : ""}
+            </div>
+          </div>
+        </div>
+
+        <h2 class="section-title">Trabajos y Repuestos Registrados</h2>
+        ${tarjetasHistorial}
+
+        <script>
+          window.onload = function () {
+            window.print();
+          };
+        </script>
+      </body>
+    </html>
+  `);
+    win.document.close();
+  };
+
   return (
     <div className="min-h-screen bg-stone-100 text-stone-900 pb-12">
       <AdminNavbar />
@@ -389,7 +570,7 @@ export default function ClientesVehiculos() {
                 <div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-stone-200">
                   <button
                     type="button"
-                    onClick={() => window.print()}
+                    onClick={imprimirHistorialPDF}
                     className="bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
                   >
                     <Printer className="w-4 h-4" />
